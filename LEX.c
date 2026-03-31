@@ -104,7 +104,7 @@ typedef struct {
     TokenTipo tipo;
     char lexema[100];
 } Token;
-/*
+
 Keyword keywords[] = {
     {"class", CLASS},
     {"inherits", INHERITS},
@@ -136,8 +136,8 @@ TokenTipo verificaPalavraReservada(char *lexema) {
         }
     }
 
-    return -1; // não é keyword
-} */
+    return IDENTIFICADOR; // não é keyword
+}
 
 Token getNextToken(FILE *arquivo) {
     Token t;
@@ -177,7 +177,7 @@ Token getNextToken(FILE *arquivo) {
 
         ungetc(c, arquivo);
 
-        t.tipo = IDENTIFICADOR;
+        t.tipo = verificaPalavraReservada(t.lexema);
         return t;
     }
 
@@ -210,6 +210,8 @@ Token getNextToken(FILE *arquivo) {
                     t.lexema[i++] = next;
                     next = fgetc(arquivo);
                 }
+                ungetc(next, arquivo);
+                t.lexema[i] = '\0';
                 t.tipo = COMENTARIO;
                 return t;    
             }
@@ -295,29 +297,13 @@ Token getNextToken(FILE *arquivo) {
                     }
                     else{
                         fechar = 1;
+
                     }     
                 }
 
                 abrir = 0;
 
                 if(comms>0){
-                    if (next == '(') {
-                        int abrir = 1;
-                    }
-
-                    if (fechar == 1) {
-                        if(next == ')'){
-                            comms -= 1;
-                            fechar = 0;
-                            if(comms == 0){
-                                t.tipo = COMENTARIO;
-                                return t;
-                            }
-                        }
-                        else{
-                            fechar = 0;
-                        }
-                    }
 
                     if (init == 1){
                         t.lexema[i++] = c;
@@ -329,8 +315,30 @@ Token getNextToken(FILE *arquivo) {
                         next = fgetc(arquivo);
                     }
                     else{
+                        ungetc(next, arquivo);
+                        t.lexema[i] = '\0';
                         t.tipo = COMENTARIO;
                         return t;
+                    }
+
+                    if (next == '(') {
+                        int abrir = 1;
+                    }
+
+                    if (fechar == 1) {
+                        if(next == ')'){
+                            comms -= 1;
+                            fechar = 0;
+                            if(comms == 0){
+                                t.lexema[i++] = next;
+                                t.lexema[i] = '\0';
+                                t.tipo = COMENTARIO;
+                                return t;
+                            }
+                        }
+                        else{
+                            fechar = 0;
+                        }
                     }
                 }
             } while(comms>0);
