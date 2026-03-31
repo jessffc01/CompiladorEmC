@@ -19,7 +19,7 @@ class Main inherits IO{
         then out_string("Sol presente, hora da fotossintese.\n") 
         else out_string("Sem sol, sem fotossintese.\n")
         fi;
-        x <- 10 + 5; -- Soma
+        x <- 10 + 5; -- Soma e atribuicao
         msg <- "resultado";
         (* y <- 0 + 15;
          a <- 2; 
