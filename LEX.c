@@ -1,53 +1,7 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <string.h>
+#include "LEX.h"
 
-typedef enum {
-    NUMERO,
-    IDENTIFICADOR,
-    MAIS,
-    MENOS,
-    DIVISAO,
-    MULTIPLICACAO,
-    MENOROUIGUAL,
-    MAIOROUIGUAL,
-    MAIOR,
-    MENOR,
-    IGUAL,
-    ATRIBUI,
-    CLASS,
-    INHERITS,
-    IF,
-    THEN,
-    ELSE,
-    FI,
-    WHILE,
-    LOOP,
-    POOL,
-    LET,
-    IN,
-    CASE,
-    OF,
-    ESAC,
-    NEW,
-    ISVOID,
-    NOT,
-    TRUE,
-    FALSE,
-    LBRACE,
-    RBRACE,
-    LPAREN, 
-    RPAREN, 
-    SEMICOLON,
-    COLON, 
-    DOT, 
-    COMMA, 
-    ARROBA,
-    STRING,
-    EOF_TOKEN,
-    COMENTARIO
-} TokenTipo;
+int linha = 1;
+int coluna = 1;
 
 const char* strTipos[] = {
     "NUMERO",
@@ -95,16 +49,6 @@ const char* strTipos[] = {
     "COMENTARIO"
 };
 
-typedef struct {
-    char *palavra;
-    TokenTipo tipo;
-} Keyword;
-
-typedef struct {
-    TokenTipo tipo;
-    char lexema[100];
-} Token;
-
 Keyword keywords[] = {
     {"class", CLASS},
     {"inherits", INHERITS},
@@ -144,14 +88,23 @@ Token getNextToken(FILE *arquivo) {
     char c, next;
     int i = 0;
     c = fgetc(arquivo);
-    
-    while (isspace(c)) {
+
+    while (isspace(c)){
+        if(c == '\n'){
+            linha += 1;
+            coluna = 1;
+        }
+        else{
+            coluna += 1;
+        }
         c = fgetc(arquivo);
     }
 
     if (c == EOF) {
         t.tipo = EOF_TOKEN;
         strcpy(t.lexema, "EOF");
+        t.location.linha = linha;
+        t.location.coluna = coluna;
         return t;
     }
 
@@ -163,7 +116,9 @@ Token getNextToken(FILE *arquivo) {
         t.lexema[i] = '\0';
 
         ungetc(c, arquivo); // devolve o último char
-
+        t.location.linha = linha;
+        t.location.coluna = coluna;
+        coluna += i;
         t.tipo = NUMERO;
         return t;
     }
@@ -176,21 +131,42 @@ Token getNextToken(FILE *arquivo) {
         t.lexema[i] = '\0';
 
         ungetc(c, arquivo);
-
+        t.location.linha = linha;
+        t.location.coluna = coluna;
+        coluna += i;
         t.tipo = verificaPalavraReservada(t.lexema);
         return t;
     }
 
+    int crossLines = 0;
+    int colCount;
+    int linhaCount = 0;
     switch (c){
         case '"':
             c = fgetc(arquivo);
-
             while (c != '"' && c != EOF) {
                 t.lexema[i++] = c;
                 c = fgetc(arquivo);
+                if(c == '\n'){
+                    crossLines = 1;
+                    linhaCount += 1;
+                    colCount = 0;
+                }
+                if(crossLines == 1){
+                    colCount += 1;
+                }
             }
 
             t.lexema[i] = '\0';
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            linha += linhaCount;
+            if(crossLines == 0){
+                coluna += i;
+            }
+            else{
+                coluna = colCount;
+            }
             t.tipo = STRING;
             return t;
             break;
@@ -198,6 +174,9 @@ Token getNextToken(FILE *arquivo) {
         case '+':
             t.tipo = MAIS;
             strcpy(t.lexema, "+");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t;
             break;
         
@@ -213,12 +192,18 @@ Token getNextToken(FILE *arquivo) {
                 ungetc(next, arquivo);
                 t.lexema[i] = '\0';
                 t.tipo = COMENTARIO;
+                t.location.linha = linha;
+                t.location.coluna = coluna;
+                coluna += i;
                 return t;    
             }
             else{
                 ungetc(next, arquivo);
                 t.tipo = MENOS;
                 strcpy(t.lexema, "-");
+                t.location.linha = linha;
+                t.location.coluna = coluna;
+                coluna += 1;
                 return t;
             }
             break;
@@ -226,33 +211,43 @@ Token getNextToken(FILE *arquivo) {
         case '*':
             t.tipo = MULTIPLICACAO;
             strcpy(t.lexema, "*");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t;
             break;
         
         case '/':
             t.tipo = DIVISAO;
             strcpy(t.lexema, "/");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t;
             break;    
         
         case '<':    
             next = fgetc(arquivo);
-
+            t.location.linha = linha;
+            t.location.coluna = coluna;
             if (next == '=') {
                 t.tipo = MENOROUIGUAL;
                 strcpy(t.lexema, "<=");
+                coluna += 2;
             } else if (next == '-') {
                 t.tipo = ATRIBUI;
                 strcpy(t.lexema, "<-");
+                coluna += 2;
             } else {
                 t.tipo = MENOR;
                 strcpy(t.lexema, "<");
                 ungetc(next, arquivo);
+                coluna += 1;
             }
             return t;
             break;
 
-        case '>':
+        /*case '>':
             next = fgetc(arquivo);
 
             if (next == '=') {
@@ -264,23 +259,32 @@ Token getNextToken(FILE *arquivo) {
                 ungetc(next, arquivo);
             }
             return t;
-            break;
+            break;*/
 
         case '=':
             t.tipo = IGUAL;
             strcpy(t.lexema, "=");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t;
             break;
         
         case '{': 
             t.tipo = LBRACE;
             strcpy(t.lexema, "{");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t;
             break; 
 
         case '}': 
             t.tipo = RBRACE; 
-            strcpy(t.lexema, "}"); 
+            strcpy(t.lexema, "}");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1; 
             return t;
             break;
         
@@ -313,11 +317,28 @@ Token getNextToken(FILE *arquivo) {
                     if (next != EOF) {
                         t.lexema[i++] = next;
                         next = fgetc(arquivo);
+                        if(next == '\n'){
+                            crossLines = 1;
+                            linhaCount += 1;
+                            colCount = 0;
+                        }
+                        if(crossLines == 1){
+                            colCount += 1;
+                        }
                     }
                     else{
                         ungetc(next, arquivo);
                         t.lexema[i] = '\0';
                         t.tipo = COMENTARIO;
+                        t.location.linha = linha;
+                        t.location.coluna = coluna;
+                        linha += linhaCount;
+                        if(crossLines == 0){
+                            coluna += i;
+                        }
+                        else{
+                            coluna = colCount;
+                        }
                         return t;
                     }
 
@@ -333,6 +354,15 @@ Token getNextToken(FILE *arquivo) {
                                 t.lexema[i++] = next;
                                 t.lexema[i] = '\0';
                                 t.tipo = COMENTARIO;
+                                t.location.linha = linha;
+                                t.location.coluna = coluna;
+                                linha += linhaCount;
+                                if(crossLines == 0){
+                                    coluna += i;
+                                }
+                                else{
+                                    coluna = colCount;
+                                }
                                 return t;
                             }
                         }
@@ -347,71 +377,100 @@ Token getNextToken(FILE *arquivo) {
             ungetc(next, arquivo); 
             t.tipo = LPAREN; 
             strcpy(t.lexema, "("); 
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t;
             break; 
         
         case ')':
             t.tipo = RPAREN; 
             strcpy(t.lexema, ")"); 
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t; 
             break;
 
         case ';': 
             t.tipo = SEMICOLON; 
-            strcpy(t.lexema, ";"); 
+            strcpy(t.lexema, ";");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1; 
             return t;
             break;
 
         case ':':
             t.tipo = COLON;
             strcpy(t.lexema, ":"); 
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t; 
             break;
 
         case '.':
-            t.tipo = DOT; strcpy(t.lexema, "."); 
+            t.tipo = DOT; 
+            strcpy(t.lexema, "."); 
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t; 
             break;
 
         case ',':
             t.tipo = COMMA;
-            strcpy(t.lexema, ","); 
+            strcpy(t.lexema, ",");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1; 
             return t;
             break;
 
         case '@':
             t.tipo = ARROBA; 
-            strcpy(t.lexema, "@"); 
+            strcpy(t.lexema, "@");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1; 
             return t;
             break;
             
         default:
             t.tipo = EOF_TOKEN;
             strcpy(t.lexema, "UNKNOWN");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
             return t;
     }
 }
 
-int main() {
-    FILE *cool;
-
-    cool = fopen("arquivo.cl", "r");
-
-    if (cool == NULL) {
-        printf("Erro ao abrir o arquivo\n");
-        return 1;
+TokenList* new_item(Token t){
+    TokenList* node = (TokenList*)malloc(sizeof(TokenList));
+    node->token = t;
+    node->next = NULL;
+    return node;
+}
+TokenList* push_back(TokenList* head, Token t){
+    TokenList* node = new_item(t);
+    if(head == NULL){
+        return node;
     }
 
-    printf("Arquivo pronto para leitura\n");
+    TokenList* back = head;
+    while(back->next!=NULL){
+        back = back->next;
+    }
 
-    Token t;
+    back->next = node;
+    return head;
+}
 
-    do {
-        t = getNextToken(cool);
-        printf("Token: %s | Lexema: %s\n", strTipos[t.tipo], t.lexema);
-    } while (t.tipo != EOF_TOKEN);
-
-    fclose(cool);
-
-    return 0;
+void free_list(TokenList* head){
+    if(head!=NULL){
+        free_list(head->next);
+        free(head);
+    }
 }
