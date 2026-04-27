@@ -4,6 +4,29 @@
 
 FILE *arquivo;
 Token currentToken;
+
+char* errors[MAX_ERRORS];
+int errorCount = 0;
+
+void reportError(const char* msg, int linha, int coluna) {
+    if (errorCount < MAX_ERRORS) {
+        char buffer[200];
+        snprintf(buffer, sizeof(buffer), "Erro na linha %d, coluna %d: %s", linha, coluna, msg);
+        errors[errorCount++] = strdup(buffer);
+    }
+}
+
+void match(TokenTipo esperado, FILE* arquivo) {
+    if (lookahead.tipo == esperado) {
+        lookahead = getNextToken(arquivo);
+    } else {
+        reportError("Token inesperado", lookahead.location.linha, lookahead.location.coluna);
+        // Recuperação simples: avança até um ponto seguro
+        while (lookahead.tipo != SEMICOLON && lookahead.tipo != EOF_TOKEN) {
+            lookahead = getNextToken(arquivo);
+        }
+    }
+}
 // 🔹 Avança para o próximo token
 void advance() {
     currentToken = getNextToken(arquivo);
@@ -208,18 +231,19 @@ void factor() {
 }
 */
 int main() {
-    arquivo = fopen("arquivo.cl", "r");
-    if (!arquivo) {
-        printf("Erro ao abrir arquivo\n");
-        return 1;
-    }
-    advance(); // primeiro token
-    expr();    // começa pelo nível mais alto
-    if (currentToken.tipo == EOF_TOKEN) {
-        printf("Parsing realizado com sucesso!\n");
+     FILE* arquivo = fopen("teste.txt", "r");
+    lookahead = getNextToken(arquivo);
+    Stmt(arquivo); // símbolo inicial
+
+    if (errorCount > 0) {
+        for (int i = 0; i < errorCount; i++) {
+            printf("%s\n", errors[i]);
+            free(errors[i]); // liberar memória
+        }
     } else {
-        printf("Erro: tokens restantes\n");
+        printf("Compilação concluída sem erros!\n");
     }
+
     fclose(arquivo);
     return 0;
 }

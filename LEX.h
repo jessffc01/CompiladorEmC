@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
-
 #ifndef LEX_H
 #define LEX_H
 
@@ -89,5 +88,15 @@ TokenList* new_item(Token t);
 TokenList* push_back(TokenList* head, Token t);
 
 void free_list(TokenList* head);
+
+#define MAX_ERRORS 100
+
+extern char* errors[MAX_ERRORS];
+extern int errorCount;
+
+void reportError(const char* msg, int linha, int coluna);
+
+#endif
+
 
 #endif
