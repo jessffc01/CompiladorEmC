@@ -1,59 +1,172 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "lex.h"
+
+#define MAX_ERRORS 100
 
 FILE *arquivo;
 Token currentToken;
-// 🔹 Avança para o próximo token
+
+Token nextToken;
+int looked = 0;
+
+char* errors[MAX_ERRORS];
+int errorCount = 0;
+
+// ================= ERRO =================
+void reportError(const char* msg, int linha, int coluna) {
+    if (errorCount < MAX_ERRORS) {
+        char buffer[200];
+        snprintf(buffer, sizeof(buffer),
+                 "Erro na linha %d, coluna %d: %s",
+                 linha, coluna, msg);
+        errors[errorCount++] = strdup(buffer);
+    }
+}
+
+// ================= CONTROLE =================
+Token look() {
+    if (!looked) {
+        nextToken = getNextToken(arquivo);
+        looked = 1;
+        while (currentToken.tipo == COMENTARIO) {
+            currentToken = getNextToken(arquivo);
+        }
+    }
+    return nextToken;
+}
+
 void advance() {
-    currentToken = getNextToken(arquivo);
-    // ignora comentários
+    if (looked) {
+        currentToken = nextToken;
+        looked = 0;
+    }
+    else{
+        currentToken = getNextToken(arquivo);
+    }
+
     while (currentToken.tipo == COMENTARIO) {
         currentToken = getNextToken(arquivo);
     }
 }
-// 🔹 Valida token esperado
+
+void synchronize() {
+    while (currentToken.tipo != SEMICOLON &&
+           currentToken.tipo != RBRACE &&
+           currentToken.tipo != EOF_TOKEN) {
+        advance();
+    }
+
+    if (currentToken.tipo == SEMICOLON) {
+        advance();
+    }
+}
+
 void match(TokenTipo esperado) {
     if (currentToken.tipo == esperado) {
         advance();
     } else {
-        printf("Erro sintático! Esperado: %d, Recebido: %d\n",
-               esperado, currentToken.tipo);
-        exit(1);
+        reportError("Token inesperado",
+                    currentToken.location.linha,
+                    currentToken.location.coluna);
+        synchronize();
     }
 }
-//void args();
 
-void class(){
-    if (currentToken.tipo == CLASS){
-        match(CLASS);
+// ================= PROTÓTIPOS =================
+void program();
+void class();
+void feature();
+void formal();
+void expr();
+void args();
+
+// EXPRESSÕES
+void expr_atrib();
+void expr_not();
+void expr_rel();
+void expr_arit();
+void term();
+void factor();
+void dispatch();
+void primary();
+
+// ================= PROGRAMA =================
+void program() {
+    while (currentToken.tipo == CLASS) {
+        class();
+    }
+}
+
+// ================= CLASS =================
+void class() {
+    match(CLASS);
+    match(IDENTIFICADOR);
+
+    if (currentToken.tipo == INHERITS) {
+        match(INHERITS);
+        match(IDENTIFICADOR);
+    }
+
+    match(LBRACE);
+
+    while (currentToken.tipo == IDENTIFICADOR) {
+        feature();
+    }
+
+    match(RBRACE);
+    match(SEMICOLON);
+}
+
+// ================= FORMAL =================
+void formal() {
+    match(IDENTIFICADOR);
+    match(COLON);
+    match(IDENTIFICADOR);
+}
+
+// ================= FEATURE =================
+void feature() {
+    match(IDENTIFICADOR);
+
+    if (currentToken.tipo == LPAREN) {
+        // método
+        match(LPAREN);
+
+        if (currentToken.tipo == IDENTIFICADOR) {
+            formal();
+            while (currentToken.tipo == COMMA) {
+                match(COMMA);
+                formal();
+            }
+        }
+
+        match(RPAREN);
+        match(COLON);
         match(IDENTIFICADOR);
 
-        if(currentToken.tipo == INHERITS){
-            match(INHERITS);
-            match(IDENTIFICADOR);
-        }
-
         match(LBRACE);
-        if(currentToken.tipo == IDENTIFICADOR){
-            feature();
-        }
+        expr();
         match(RBRACE);
-    }
-}
+    } else {
+        // atributo
+        match(COLON);
+        match(IDENTIFICADOR);
 
-void feature(){
-    match(IDENTIFICADOR);
-    if(currentToken.tipo == LPAREN){
-        match(LPAREN);
-        if(currentToken.tipo == IDENTIFICADOR){
-            match(IDENTIFICADOR);
+        if (currentToken.tipo == ATRIBUI) {
+            match(ATRIBUI);
+            expr();
         }
     }
+
+    match(SEMICOLON);
 }
 
+// ================= EXPRESSÕES =================
 void expr() {
-    // 🔸 IF
+
+    // IF
     if (currentToken.tipo == IF) {
         match(IF);
         expr();
@@ -64,7 +177,7 @@ void expr() {
         match(FI);
     }
 
-    // 🔸 WHILE
+    // WHILE
     else if (currentToken.tipo == WHILE) {
         match(WHILE);
         expr();
@@ -73,95 +186,168 @@ void expr() {
         match(POOL);
     }
 
-    // 🔸 LET
-    else if (currentToken.tipo == LET) {
+    // LET
+    else if(currentToken.tipo == LET){
         match(LET);
-
         match(IDENTIFICADOR);
         match(COLON);
-        match(IDENTIFICADOR); // tipo simplificado
+        match(IDENTIFICADOR);
 
         if (currentToken.tipo == ATRIBUI) {
             match(ATRIBUI);
             expr();
         }
 
+        while (currentToken.tipo == COMMA) {
+            match(COMMA);
+            match(IDENTIFICADOR);
+            match(COLON);
+            match(IDENTIFICADOR);
+
+            if (currentToken.tipo == ATRIBUI) {
+                match(ATRIBUI);
+                expr();
+            }
+        }
         match(IN);
         expr();
     }
 
-    // 🔸 NEW
+    // CASE
+    else if (currentToken.tipo == CASE) {
+        match(CASE);
+        expr();
+        match(OF);
+
+        do{
+            match(IDENTIFICADOR);
+            match(COLON);
+            match(IDENTIFICADOR);
+            match(AVALIA);
+            expr();
+            match(SEMICOLON);
+        }while (currentToken.tipo == IDENTIFICADOR);
+
+        match(ESAC);
+    }
+
+    // BLOCO
+    else if (currentToken.tipo == LBRACE) {
+        match(LBRACE);
+
+        do{
+            expr();
+            match(SEMICOLON);
+        } while (currentToken.tipo != RBRACE && currentToken.tipo != EOF_TOKEN);
+
+        match(RBRACE);
+    }
+
+    // NEW
     else if (currentToken.tipo == NEW) {
         match(NEW);
         match(IDENTIFICADOR);
     }
 
-    // 🔸 NOT
-    else if (currentToken.tipo == NOT) {
-        match(NOT);
-        expr();
+    else {
+        expr_atrib(); //Começa a trabalhar com operadores
     }
+}
 
-    // 🔸 IDENTIFICADOR → variável ou chamada
-    else if (currentToken.tipo == IDENTIFICADOR) {
+//================= ATRIBUIÇÃO =================
+void expr_atrib(){
+    if (currentToken.tipo == IDENTIFICADOR && look().tipo == ATRIBUI) {
         match(IDENTIFICADOR);
-
-        // chamada de método
-        if (currentToken.tipo == LPAREN) {
-            match(LPAREN);
-            args();
-            match(RPAREN);
-        }
+        match(ATRIBUI);
+        expr_atrib();
+        return;
     }
+    expr_not();
+}
 
-    // 🔸 número
-    else if (currentToken.tipo == NUMERO) {
-        match(NUMERO);
+//================= NOT =================
+void expr_not(){
+    while(currentToken.tipo == NOT){
+        match(NOT);
     }
+    expr_rel();
+}
 
-    // 🔸 string
-    else if (currentToken.tipo == STRING) {
-        match(STRING);
-    }
+// ================= RELACIONAL =================
+void expr_rel() {
+    expr_arit();
 
-    // 🔸 TRUE / FALSE
-    else if (currentToken.tipo == TRUE) {
-        match(TRUE);
-    }
-    else if (currentToken.tipo == FALSE) {
-        match(FALSE);
-    }
+    while (currentToken.tipo == MENOR ||
+        currentToken.tipo == MENOROUIGUAL ||
+        currentToken.tipo == MAIOR ||
+        currentToken.tipo == MAIOROUIGUAL ||
+        currentToken.tipo == IGUAL) {
 
-    // 🔸 parênteses
-    else if (currentToken.tipo == LPAREN) {
+        advance();
+        expr_arit();
+    }
+}
+
+// ================= ARITMÉTICA =================
+void expr_arit() {
+    term();
+
+    while (currentToken.tipo == MAIS ||
+           currentToken.tipo == MENOS) {
+
+        advance();
+        term();
+    }
+}
+
+void term() {
+    factor();
+
+    while (currentToken.tipo == MULTIPLICACAO ||
+           currentToken.tipo == DIVISAO) {
+
+        advance();
+        factor();
+    }
+}
+
+void factor() {
+    if(currentToken.tipo == ISVOID) {
+        match(ISVOID);
+        factor();
+    }
+    else if(currentToken.tipo == COMPLEMENTO){
+        match(COMPLEMENTO);
+        factor();
+    }
+    else{
+        dispatch();
+    }
+}
+
+void dispatch(){
+    primary();
+
+    if (currentToken.tipo == LPAREN) {
         match(LPAREN);
-        expr();
+        args();
         match(RPAREN);
     }
 
-    else {
-        printf("Erro: expressão inválida\n");
-        exit(1);
+    while(currentToken.tipo == DOT || currentToken.tipo == ARROBA) {
+        if (currentToken.tipo == ARROBA) {
+            match(ARROBA);
+            match(IDENTIFICADOR);
+        }
+        match(DOT);
+        match(IDENTIFICADOR);
+        match(LPAREN);
+        args();
+        match(RPAREN);
     }
 }
 
-void args() {
-
-    if (currentToken.tipo == RPAREN) {
-        return; // vazio
-    }
-
-    expr();
-
-    while (currentToken.tipo == COMMA) {
-        match(COMMA);
-        expr();
-    }
-}
-/*void factor();
-void term();
-void expr_arit();
-void factor() {
+void primary(){
     if (currentToken.tipo == NUMERO) {
         match(NUMERO);
     }
@@ -170,56 +356,63 @@ void factor() {
     }
     else if (currentToken.tipo == LPAREN) {
         match(LPAREN);
-        expr_arit();
+        expr();
         match(RPAREN);
     }
+    else if (currentToken.tipo == STRING) {
+        match(STRING);
+    }
+    else if (currentToken.tipo == TRUE) {
+        match(TRUE);
+    }
+    else if (currentToken.tipo == FALSE) {
+        match(FALSE);
+    }
     else {
-        printf("Erro em factor\n");
-        exit(1);
+        reportError("Fator inválido",
+                    currentToken.location.linha,
+                    currentToken.location.coluna);
+        synchronize();
     }
 }
-    void term() {
-    factor();
 
-    while (currentToken.tipo == MULTIPLICACAO ||
-           currentToken.tipo == DIVISAO) {
+// ================= ARGUMENTOS =================
+void args() {
+    if (currentToken.tipo == RPAREN) return;
 
-        if (currentToken.tipo == MULTIPLICACAO)
-            match(MULTIPLICACAO);
-        else
-            match(DIVISAO);
+    expr();
 
-        factor();
+    while (currentToken.tipo == COMMA) {
+        match(COMMA);
+        expr();
     }
 }
-    void expr_arit() {
-    term();
 
-    while (currentToken.tipo == MAIS ||
-           currentToken.tipo == MENOS) {
-
-        if (currentToken.tipo == MAIS)
-            match(MAIS);
-        else
-            match(MENOS);
-
-        term();
-    }
-}
-*/
+// ================= MAIN =================
 int main() {
     arquivo = fopen("arquivo.cl", "r");
+
     if (!arquivo) {
         printf("Erro ao abrir arquivo\n");
         return 1;
     }
-    advance(); // primeiro token
-    expr();    // começa pelo nível mais alto
-    if (currentToken.tipo == EOF_TOKEN) {
-        printf("Parsing realizado com sucesso!\n");
-    } else {
-        printf("Erro: tokens restantes\n");
+
+    advance();
+    program();
+
+    if (errorCount > 0 || currentToken.tipo != EOF_TOKEN) {
+        for (int i = 0; i < errorCount; i++) {
+            printf("%s\n", errors[i]);
+            free(errors[i]);
+        }
+        if(currentToken.tipo != EOF_TOKEN){
+            printf("Erro: tokens restantes\n");
+        }
     }
+    else{
+        printf("Parsing realizado com sucesso!\n");
+    }
+
     fclose(arquivo);
     return 0;
 }

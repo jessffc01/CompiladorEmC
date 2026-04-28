@@ -15,6 +15,8 @@ const char* strTipos[] = {
     "MAIOR",
     "MENOR",
     "IGUAL",
+    "COMPLEMENTO",
+    "AVALIA",
     "ATRIBUI",
     "CLASS",
     "INHERITS",
@@ -224,7 +226,16 @@ Token getNextToken(FILE *arquivo) {
             t.location.coluna = coluna;
             coluna += 1;
             return t;
-            break;    
+            break;
+            
+        case '~':
+            t.tipo = COMPLEMENTO;
+            strcpy(t.lexema, "~");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
+            return t;
+            break; 
         
         case '<':    
             next = fgetc(arquivo);
@@ -262,11 +273,20 @@ Token getNextToken(FILE *arquivo) {
             break;*/
 
         case '=':
-            t.tipo = IGUAL;
-            strcpy(t.lexema, "=");
+            next = fgetc(arquivo);
             t.location.linha = linha;
             t.location.coluna = coluna;
-            coluna += 1;
+            if (next == '>') {
+                t.tipo = AVALIA;
+                strcpy(t.lexema, "=>");
+                coluna += 2;
+            }
+            else{
+                t.tipo = IGUAL;
+                strcpy(t.lexema, "=");
+                ungetc(next, arquivo);
+                coluna += 1;
+            }
             return t;
             break;
         
@@ -447,7 +467,7 @@ Token getNextToken(FILE *arquivo) {
     }
 }
 
-TokenList* new_item(Token t){
+/*TokenList* new_item(Token t){
     TokenList* node = (TokenList*)malloc(sizeof(TokenList));
     node->token = t;
     node->next = NULL;
@@ -473,4 +493,4 @@ void free_list(TokenList* head){
         free_list(head->next);
         free(head);
     }
-}
+}*/

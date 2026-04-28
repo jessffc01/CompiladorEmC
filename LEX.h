@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
-
 #ifndef LEX_H
 #define LEX_H
 
@@ -21,6 +20,8 @@ typedef enum {
     MAIOR,
     MENOR,
     IGUAL,
+    COMPLEMENTO,
+    AVALIA,
     ATRIBUI,
     CLASS,
     INHERITS,
@@ -75,19 +76,26 @@ typedef struct {
     TokenLocation location;
 } Token;
 
-typedef struct TokenList {
+/*typedef struct TokenList {
     Token token;
     struct TokenList* next;
-} TokenList;
+} TokenList;*/
 
 TokenTipo verificaPalavraReservada(char *lexema);
 
 Token getNextToken(FILE *arquivo);
 
-TokenList* new_item(Token t);
+/*TokenList* new_item(Token t);
 
 TokenList* push_back(TokenList* head, Token t);
 
-void free_list(TokenList* head);
+void free_list(TokenList* head);*/
+
+#define MAX_ERRORS 100
+
+extern char* errors[MAX_ERRORS];
+extern int errorCount;
+
+void reportError(const char* msg, int linha, int coluna);
 
 #endif
