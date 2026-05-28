@@ -223,7 +223,7 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                 ASTNode* init = atual->dados.atributo.inicializacao;
                 char* tipo = atual->dados.atributo.tipo_atributo;
                 if(init != NULL){
-                    char* tipo_init = checkExpr(init);
+                    char* tipo_init = checkExpr(init, classeOrigem);
                     if(isSubtype(tipo_init, tipo) == 1){
                         adicionar_symbol_atributo(nome, tipo, classeOrigem, 1);
                     }
@@ -236,6 +236,7 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                 }
                 
                 break;
+
             case NODE_METODO:
                 char* nome = atual->dados.metodo.nome_metodo;
                 nomeOcupado = searchItem(nome, tabela_metodos, atual->tipo, classeOrigem);
@@ -249,7 +250,7 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                     tipo = classeOrigem;
                 }
                 if(init != NULL){
-                    char* tipo_corpo = checkExpr(corpo);
+                    char* tipo_corpo = checkExpr(corpo, classeOrigem);
                     if(isSubtype(tipo_corpo, tipo) == 1){
                         adicionar_symbol_metodo(nome, tipo, classeOrigem, 1, atual->dados.metodo.lista_formais);
                     }
@@ -270,11 +271,11 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
     }
 }
 
-const char* checkExpr(ASTNode* node) {
+const char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- ATRIBUIÇÃO ---------- */
     if(node->tipo == NODE_ATRIBUICAO){
 
-        const char* valorType = checkExpr(node->dados.atribuicao.valor);
+        const char* valorType = checkExpr(node->dados.atribuicao.valor, classeOrigem);
 
         return valorType;
     }
@@ -283,7 +284,7 @@ const char* checkExpr(ASTNode* node) {
     else if(node->tipo == NODE_IF) {
 
         const char* condType =
-            checkExpr(node->dados.no_if.condicao);
+            checkExpr(node->dados.no_if.condicao, classeOrigem);
 
         if(strcmp(condType, "Bool") != 0) {
 
@@ -293,10 +294,10 @@ const char* checkExpr(ASTNode* node) {
         }
 
         const char* thenType =
-            checkExpr(node->dados.no_if.bloco_then);
+            checkExpr(node->dados.no_if.bloco_then, classeOrigem);
 
         const char* elseType =
-            checkExpr(node->dados.no_if.bloco_else);
+            checkExpr(node->dados.no_if.bloco_else, classeOrigem);
 
         return leastCommonAncestor(thenType, elseType);
     }
@@ -315,7 +316,7 @@ const char* checkExpr(ASTNode* node) {
 
     else if(node->tipo == NODE_WHILE) {
         const char* condType =
-            checkExpr(node->dados.no_while.condicao);
+            checkExpr(node->dados.no_while.condicao, classeOrigem);
 
         if(strcmp(condType, "Bool") != 0) {
 
@@ -324,7 +325,7 @@ const char* checkExpr(ASTNode* node) {
             sm_errors += 1;
         }
 
-        checkExpr(node->dados.no_while.condicao);
+        checkExpr(node->dados.no_while.condicao, classeOrigem);
 
         return "Object";
     }
@@ -339,7 +340,7 @@ const char* checkExpr(ASTNode* node) {
             last = last->proximo;
         }
         lastType =
-            checkExpr(last);
+            checkExpr(last, classeOrigem);
 
         return lastType;
     }
@@ -348,10 +349,10 @@ const char* checkExpr(ASTNode* node) {
 
     else if(node->tipo == NODE_ARITMETICO) {
         const char* left =
-            checkExpr(node->dados.operacao_binaria.esquerdo);
+            checkExpr(node->dados.operacao_binaria.esquerdo, classeOrigem);
 
         const char* right =
-            checkExpr(node->dados.operacao_binaria.direito);
+            checkExpr(node->dados.operacao_binaria.direito, classeOrigem);
 
         if(strcmp(left, "Int") != 0 ||
            strcmp(right, "Int") != 0) {
@@ -368,10 +369,10 @@ const char* checkExpr(ASTNode* node) {
 
     else if(node->tipo == NODE_RELACIONAL) {
         const char* left =
-            checkExpr(node->dados.operacao_binaria.esquerdo);
+            checkExpr(node->dados.operacao_binaria.esquerdo, classeOrigem);
 
         const char* right =
-            checkExpr(node->dados.operacao_binaria.direito);
+            checkExpr(node->dados.operacao_binaria.direito, classeOrigem);
         
         int leftInt = strcmp(left, "Int");
         int rightInt = strcmp(right, "Int");
@@ -415,13 +416,18 @@ const char* checkExpr(ASTNode* node) {
     /* ---------- NEW ---------- */
 
     else if(node->tipo == NODE_NEW){
-    
+        if(node->dados.valor_lexico = "SELF_TYPE"){
+            return classeOrigem;
+        }
+        else{
+            return node->dados.valor_lexico;
+        }
     }
 
     /* ---------- NOT ---------- */
 
     else if(node->tipo == NODE_NOT){
-        const char* type_expr = checkExpr(node->dados.operacao_unaria.expressao);
+        const char* type_expr = checkExpr(node->dados.operacao_unaria.expressao, classeOrigem);
 
         if(strcmp(type_expr, "Bool") < 0){
             printf("Erro semântico: "

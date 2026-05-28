@@ -58,6 +58,6 @@ int checkProgram(ASTNode* node);
 
 void checkFeatures(ASTNode* node, char* classeOrigem);
 
-const char* checkExpr(ASTNode* node);
+const char* checkExpr(ASTNode* node, char* classeOrigem);
 
 #endif
