@@ -1,37 +1,63 @@
 #include "parser.h"
+#include "symtab.h"
 #include <stdio.h>
 #include <string.h>
+#ifndef SEMANTIC_H
+#define SEMANTIC_H
 
-// Função que percorre a AST e retorna o tipo da expressão
-const char* checkExpr(ASTNode* node) {
-    if(strcmp(node->label, "If") == 0) {
-        const char* condType = checkExpr(node->children[0]);
-        if(strcmp(condType, "Bool") != 0) {
-            printf("Erro semântico: condição de IF deve ser booleana\n");
-        }
-        const char* thenType = checkExpr(node->children[1]);
-        const char* elseType = checkExpr(node->children[2]);
-        // simplificação: se tipos diferentes, erro
-        if(strcmp(thenType, elseType) != 0) {
-            printf("Erro semântico: tipos do THEN e ELSE incompatíveis\n");
-        }
-        return thenType; // tipo resultante
-    }
-    else if(strcmp(node->label, "While") == 0) {
-        const char* condType = checkExpr(node->children[0]);
-        if(strcmp(condType, "Bool") != 0) {
-            printf("Erro semântico: condição de WHILE deve ser booleana\n");
-        }
-        checkExpr(node->children[1]);
-        return "Object"; // While não retorna valor
-    }
-    else if(strcmp(node->label, "Numero") == 0) {
-        return "Int";
-    }
-    else if(strcmp(node->label, "True") == 0 || strcmp(node->label, "False") == 0) {
-        return "Bool";
-    }
-    else {
-        return "Object"; // fallback
-    }
-}
+/*
+    ==========================================
+           ESTRUTURA SIMPLIFICADA
+    ==========================================
+
+    Exemplo de hierarquia:
+
+    Object
+      |
+    Animal
+     /  \
+   Dog  Cat
+
+*/
+
+
+/* ==========================================
+        PROCURA PAI DE UMA CLASSE
+========================================== */
+
+const char* getParent(const char* className);
+
+/* ==========================================
+      VERIFICA SE CHILD É SUBTIPO DE PARENT
+========================================== */
+
+int isSubtype(const char* child, const char* parent);
+
+/* ==========================================
+         MENOR ANCESTRAL COMUM
+========================================== */
+
+const char* leastCommonAncestor(const char* type1, const char* type2);
+
+/* ==========================================
+        VERIFICADOR DE ITEM JÁ EXISTENTE
+========================================== */
+
+int searchItem(const char* nome, Symbol* tabela_simbolos, NodeType tipo, char* classeOrigem);
+
+/* ==========================================
+        VERIFICADOR DE VALIDADE DE CLASSE PAI
+========================================== */
+
+int verifyParent(const char* pai);
+
+/* ==========================================
+        ANALISADOR SEMÂNTICO
+========================================== */
+int checkProgram(ASTNode* node);
+
+void checkFeatures(ASTNode* node, char* classeOrigem);
+
+const char* checkExpr(ASTNode* node);
+
+#endif

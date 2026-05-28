@@ -1,15 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "lex.h"
-#include <math.h>
-#include "ast.h"
+#include "parser.h"
 
 #define MAX_ERRORS 100
 
-FILE *arquivo;
+extern FILE *arquivo;
 Token currentToken;
-int modo_panico = 0;
 
 Token nextToken;
 int looked = 0;
@@ -19,9 +13,6 @@ int errorCount = 0;
 
 // ================= ERRO =================
 void reportError(const char* msg, int linha, int coluna) {
-    if(modo_panico) return;
-    modo_panico = 1;
-    
     if (errorCount < MAX_ERRORS) {
         char buffer[200];
         snprintf(buffer, sizeof(buffer),
@@ -57,7 +48,6 @@ void advance() {
     }
 }
 
-// ================= RECUPERAÇÃO INTELIGENTE =================
 void synchronize() {
     int profundidade_chaves = 0;
 
@@ -103,7 +93,6 @@ void synchronize() {
 
 void match(TokenTipo esperado) {
     if (currentToken.tipo == esperado) {
-        modo_panico = 0;
         advance();
     } else {
         reportError("Token inesperado",
@@ -112,25 +101,6 @@ void match(TokenTipo esperado) {
         synchronize();
     }
 }
-
-// ================= PROTÓTIPOS =================
-// ================= ESTRUTURAS PRINCIPAIS =================
-ASTNode* program();
-ASTNode* class();    // Lê uma classe (ou lista de classes)
-ASTNode* feature();  // Lê métodos ou atributos
-ASTNode* formal();   // Lê os parâmetros de um método
-ASTNode* expr();     // O nosso grande trator principal
-ASTNode* args();     // Lê as listas separadas por vírgula
-
-// ================= EXPRESSÕES (A Escada Matemática) =================
-ASTNode* expr_atrib();
-ASTNode* expr_not();
-ASTNode* expr_rel();
-ASTNode* expr_arit();
-ASTNode* term();
-ASTNode* factor();
-ASTNode* dispatch();
-ASTNode* primary();
 
 // ================= PROGRAMA =================
 ASTNode* program() {
@@ -141,12 +111,13 @@ ASTNode* program() {
         //3 - engata a nova classe no fim usando ast.c
         lista_classes = adicionar_comando(lista_classes, nova_classe);
     } 
+
     return lista_classes;
 }
 
 // ================= CLASS =================
 ASTNode* class() {
-    advance();
+    match(CLASS);
     
     //clona o nome da classe antes de avançar
     char* nome_classe = strdup(currentToken.lexema);
@@ -156,7 +127,7 @@ ASTNode* class() {
     char* nome_pai = strdup("object");
 
     if(currentToken.tipo == INHERITS){
-        advance();
+        match(INHERITS);
 
         //se herdar de alguém, descartamos "Object"
         free(nome_pai);
@@ -200,7 +171,7 @@ ASTNode* feature(){
 
     if(currentToken.tipo == LPAREN){
         //metodo
-        advance(); 
+        match(LPAREN);  
         //preparação para lista de parâmetros;
         ASTNode* lista_formals = NULL;
 
@@ -218,30 +189,15 @@ ASTNode* feature(){
         match(RPAREN);
         match(COLON);
 
-        // Salvo o tipo de retorno do método int, string;
+        //Salvo o tipo de retorno do método int, string;
         char* tipo_retorno = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
 
-        // ==========================================
-        // A REGRA DA PORTA FECHADA
-        // ==========================================
-        ASTNode* corpo_metodo = NULL;
+        match(LBRACE);
 
-        if (currentToken.tipo == LBRACE) {
-            match(LBRACE);         // Entra no método
-            corpo_metodo = expr(); // Lê os móveis (comandos)
-            match(RBRACE);         // Sai do método
-        } 
-        else {
-            // Dá o erro na letra 'a' e o synchronize pula tudo até parar no '}'
-            match(LBRACE); 
-            
-            // ESSA É A LINHA MÁGICA: Consome o '}' para a esteira andar pro ';' !
-            match(RBRACE); 
-        }
-        // ==========================================
-
-        match(SEMICOLON); // Agora ele vai achar o ';' certinho e ser feliz!
+        ASTNode* corpo_metodo = expr();
+        match(RBRACE);
+        match(SEMICOLON);
 
         return criar_no_metodo(nome_feature, tipo_retorno, lista_formals, corpo_metodo);
     }else{
@@ -258,9 +214,7 @@ ASTNode* feature(){
 
             inicializacao = expr();
         }
-        
         match(SEMICOLON);
-        
 
         return criar_no_atributo(nome_feature, tipo_atributo, inicializacao);
     }
@@ -270,7 +224,7 @@ ASTNode* feature(){
 ASTNode* expr(){
     //IF
     if(currentToken.tipo == IF){
-        advance();
+        match(IF);
         ASTNode* condicao = expr();//pega a conta do if ex: a>b
         match(THEN);
         ASTNode* bloco_then = expr();//se for vdd
@@ -327,7 +281,7 @@ ASTNode* expr(){
                 match(ATRIBUI);
                 prox_init = expr();
             }
-            lista_variaveis = adicionar_comando(lista_variaveis, criar_no_let_var(prox_nome, prox_tipo, prox_init));
+            
         }
         match(IN);
         ASTNode* corpo_let = expr();//codigo que vai usar as variaveis;
@@ -387,8 +341,8 @@ ASTNode* expr(){
 ASTNode* expr_atrib(){
     if (currentToken.tipo == IDENTIFICADOR && look().tipo == ATRIBUI) {
         char* nome_var = strdup(currentToken.lexema);
-        advance();
-        advance();
+        match(IDENTIFICADOR);
+        match(ATRIBUI);
         ASTNode* valor_direito = expr_atrib();
         return criar_no_atribuicao(nome_var, valor_direito);
     }
@@ -521,21 +475,21 @@ ASTNode* dispatch(){
 // ================= PRIMÁRIO (Os Átomos da Linguagem) =================
 ASTNode* primary() {
     
-  
+    // 1. NÚMEROS (Ex: 42)
     if (currentToken.tipo == NUMERO) {
         char* valor = strdup(currentToken.lexema);
         match(NUMERO);
         return criar_no_inteiro(valor);
     }
     
-    
+    // 2. VARIÁVEIS / IDENTIFICADORES (Ex: hp, velocidade)
     else if (currentToken.tipo == IDENTIFICADOR) {
         char* nome = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
         return criar_no_identificador(nome);
     }
     
-    
+    // 3. A MÁGICA DOS PARÊNTESES (Ex: (2 + 3) )
     else if (currentToken.tipo == LPAREN) {
         match(LPAREN);
         // Pega o elevador de volta para o topo e lê toda a matemática de dentro!
@@ -546,14 +500,14 @@ ASTNode* primary() {
         return expressao_interna;
     }
     
-    
+    // 4. TEXTOS (Ex: "Olá Mundo")
     else if (currentToken.tipo == STRING) {
         char* texto = strdup(currentToken.lexema);
         match(STRING);
         return criar_no_string(texto);
     }
     
-  
+    // 5. BOOLEANOS (Verdadeiro ou Falso)
     else if (currentToken.tipo == TRUE) {
         match(TRUE);
         return criar_no_booleano(1); // 1 representa true em C
@@ -563,7 +517,7 @@ ASTNode* primary() {
         return criar_no_booleano(0); // 0 representa false em C
     }
     
-    
+    // 6. A REDE DE SEGURANÇA (Tratamento de Erros)
     else {
         reportError("Fator inválido",
                     currentToken.location.linha,
@@ -597,44 +551,4 @@ ASTNode* args() {
 
     // 4. Devolve a lista inteira de argumentos amarradinha
     return lista_args;
-}
-// ================= MAIN =================
-int main() {
-    arquivo = fopen("arquivo.cl", "r");
-
-    if (!arquivo) {
-        printf("Erro ao abrir arquivo\n");
-        return 1;
-    }
-
-    advance();
-    
-    // 1. A MUDANÇA PRINCIPAL: Capturamos a raiz da árvore inteira!
-    ASTNode* arvore_sintatica = program();
-    
-    if (errorCount > 0 || currentToken.tipo != EOF_TOKEN) {
-        for (int i = 0; i < errorCount; i++) {
-            printf("%s\n", errors[i]);
-            free(errors[i]);
-        }
-        if(currentToken.tipo != EOF_TOKEN){
-            printf("Erro: tokens restantes\n");
-        }
-        
-        printf("\n--- ÁRVORE SINTÁTICA COM ERRO DETECTADO---\n");
-        imprimir_arvore(arvore_sintatica, 0); 
-    }
-    else {
-        printf("Parsing realizado com sucesso!\n");
-        
-       // 2. O GRANDE TESTE: Imprimir a árvore no terminal para ver se funcionou!
-        printf("\n--- ÁRVORE SINTÁTICA ---\n");
-        imprimir_arvore(arvore_sintatica, 0); 
-        
-        // 3. LIMPEZA: Como programamos em C, temos que liberar a memória no final!
-        liberar_arvore(arvore_sintatica);
-    }
-
-    fclose(arquivo);
-    return 0;
 }

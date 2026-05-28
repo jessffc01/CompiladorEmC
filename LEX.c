@@ -466,31 +466,3 @@ Token getNextToken(FILE *arquivo) {
             return t;
     }
 }
-
-/*TokenList* new_item(Token t){
-    TokenList* node = (TokenList*)malloc(sizeof(TokenList));
-    node->token = t;
-    node->next = NULL;
-    return node;
-}
-TokenList* push_back(TokenList* head, Token t){
-    TokenList* node = new_item(t);
-    if(head == NULL){
-        return node;
-    }
-
-    TokenList* back = head;
-    while(back->next!=NULL){
-        back = back->next;
-    }
-
-    back->next = node;
-    return head;
-}
-
-void free_list(TokenList* head){
-    if(head!=NULL){
-        free_list(head->next);
-        free(head);
-    }
-}*/
