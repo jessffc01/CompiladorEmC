@@ -2,45 +2,26 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lex.h"
+#include <math.h>
+#include "ast.h"
 
 #define MAX_ERRORS 100
 
 FILE *arquivo;
 Token currentToken;
+int modo_panico = 0;
+
+Token nextToken;
+int looked = 0;
 
 char* errors[MAX_ERRORS];
 int errorCount = 0;
 
-// ================= AST =================
-typedef struct ASTNode {
-    char *label;
-    struct ASTNode **children;
-    int childCount;
-} ASTNode;
-
-ASTNode* createNode(const char *label) {
-    ASTNode *node = (ASTNode*)malloc(sizeof(ASTNode));
-    node->label = strdup(label);
-    node->children = NULL;
-    node->childCount = 0;
-    return node;
-}
-
-void addChild(ASTNode *parent, ASTNode *child) {
-    parent->children = realloc(parent->children, sizeof(ASTNode*) * (parent->childCount + 1));
-    parent->children[parent->childCount++] = child;
-}
-
-void printAST(ASTNode *node, int depth) {
-    for(int i = 0; i < depth; i++) printf("  ");
-    printf("%s\n", node->label);
-    for(int i = 0; i < node->childCount; i++) {
-        printAST(node->children[i], depth + 1);
-    }
-}
-
 // ================= ERRO =================
 void reportError(const char* msg, int linha, int coluna) {
+    if(modo_panico) return;
+    modo_panico = 1;
+    
     if (errorCount < MAX_ERRORS) {
         char buffer[200];
         snprintf(buffer, sizeof(buffer),
@@ -51,26 +32,78 @@ void reportError(const char* msg, int linha, int coluna) {
 }
 
 // ================= CONTROLE =================
+Token look() {
+    if (!looked) {
+        nextToken = getNextToken(arquivo);
+        looked = 1;
+        while (currentToken.tipo == COMENTARIO) {
+            currentToken = getNextToken(arquivo);
+        }
+    }
+    return nextToken;
+}
+
 void advance() {
-    currentToken = getNextToken(arquivo);
+    if (looked) {
+        currentToken = nextToken;
+        looked = 0;
+    }
+    else{
+        currentToken = getNextToken(arquivo);
+    }
+
     while (currentToken.tipo == COMENTARIO) {
         currentToken = getNextToken(arquivo);
     }
 }
 
+// ================= RECUPERAÇÃO INTELIGENTE =================
 void synchronize() {
-    while (currentToken.tipo != SEMICOLON &&
-           currentToken.tipo != RBRACE &&
-           currentToken.tipo != EOF_TOKEN) {
-        advance();
+    int profundidade_chaves = 0;
+
+    // 1. Ponto de parada seguro imediato (Se o erro já aconteceu em cima de um delimitador)
+    if (currentToken.tipo == SEMICOLON || currentToken.tipo == RBRACE || currentToken.tipo == EOF_TOKEN) {
+        return;
     }
-    if (currentToken.tipo == SEMICOLON) {
-        advance();
+
+    // 2. O Submarino: Navegando pelas profundezas dos blocos
+    while (currentToken.tipo != EOF_TOKEN) {
+        
+        if (currentToken.tipo == LBRACE) {
+            profundidade_chaves++;
+        } else if (currentToken.tipo == RBRACE) {
+            profundidade_chaves--;
+        }
+
+        // ==========================================
+        // A CORREÇÃO DE OURO (MENOR QUE ZERO)
+        // Se a profundidade ficar negativa, significa que a chave '}' na esteira
+        // pertence ao fechamento do método verdadeiro. É hora de parar e deixá-la aí!
+        if (profundidade_chaves < 0) {
+            return; 
+        }
+        // ==========================================
+
+        // Se estamos no nível zero perfeito e achamos um ponto e vírgula, recomeça
+        if (profundidade_chaves == 0 && currentToken.tipo == SEMICOLON) {
+            return; 
+        }
+
+        // Se achamos uma palavra-chave segura no nível zero, recomeça
+        if (profundidade_chaves == 0) {
+            TokenTipo t = currentToken.tipo;
+            if (t == CLASS || t == IF || t == WHILE || t == LET || t == CASE) {
+                return; 
+            }
+        }
+
+        advance(); // Engole o lixo silenciosamente
     }
 }
 
 void match(TokenTipo esperado) {
     if (currentToken.tipo == esperado) {
+        modo_panico = 0;
         advance();
     } else {
         reportError("Token inesperado",
@@ -81,234 +114,525 @@ void match(TokenTipo esperado) {
 }
 
 // ================= PROTÓTIPOS =================
+// ================= ESTRUTURAS PRINCIPAIS =================
 ASTNode* program();
-ASTNode* classNode();
-ASTNode* feature();
-ASTNode* formal();
-ASTNode* expr();
-ASTNode* args();
+ASTNode* class();    // Lê uma classe (ou lista de classes)
+ASTNode* feature();  // Lê métodos ou atributos
+ASTNode* formal();   // Lê os parâmetros de um método
+ASTNode* expr();     // O nosso grande trator principal
+ASTNode* args();     // Lê as listas separadas por vírgula
+
+// ================= EXPRESSÕES (A Escada Matemática) =================
+ASTNode* expr_atrib();
+ASTNode* expr_not();
 ASTNode* expr_rel();
 ASTNode* expr_arit();
 ASTNode* term();
 ASTNode* factor();
+ASTNode* dispatch();
+ASTNode* primary();
 
 // ================= PROGRAMA =================
 ASTNode* program() {
-    ASTNode *root = createNode("Program");
-    while (currentToken.tipo == CLASS) {
-        addChild(root, classNode());
-    }
-    return root;
+    ASTNode* lista_classes = NULL;
+    while (currentToken.tipo == CLASS){
+        //2 - chama a função class() e guarda o nó que vai construir
+        ASTNode* nova_classe = class(); 
+        //3 - engata a nova classe no fim usando ast.c
+        lista_classes = adicionar_comando(lista_classes, nova_classe);
+    } 
+    return lista_classes;
 }
 
 // ================= CLASS =================
-ASTNode* classNode() {
-    ASTNode *node = createNode("Class");
-    match(CLASS);
+ASTNode* class() {
+    advance();
+    
+    //clona o nome da classe antes de avançar
+    char* nome_classe = strdup(currentToken.lexema);
     match(IDENTIFICADOR);
 
-    if (currentToken.tipo == INHERITS) {
-        match(INHERITS);
+    //preparando o pai padrão ("Object")
+    char* nome_pai = strdup("object");
+
+    if(currentToken.tipo == INHERITS){
+        advance();
+
+        //se herdar de alguém, descartamos "Object"
+        free(nome_pai);
+        nome_pai = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
     }
-
     match(LBRACE);
-    while (currentToken.tipo == IDENTIFICADOR) {
-        addChild(node, feature());
+
+    //caso tenha mais de um atributos ou métodos
+    ASTNode* lista_features = NULL;
+
+    while(currentToken.tipo == IDENTIFICADOR){
+        //lemos a feature e a colocamos no final
+        ASTNode * nova_feature = feature();
+        lista_features = adicionar_comando(lista_features,nova_feature);
     }
+
     match(RBRACE);
     match(SEMICOLON);
-    return node;
+
+    return criar_no_classe(nome_classe, nome_pai, lista_features);
 }
 
 // ================= FORMAL =================
 ASTNode* formal() {
-    ASTNode *node = createNode("Formal");
+    //salva o nome da variável antes de avançar
+    char* nome_parametro = strdup(currentToken.lexema);
     match(IDENTIFICADOR);
     match(COLON);
+    //salva o tipo
+    char* tipo_parametro = strdup(currentToken.lexema);
     match(IDENTIFICADOR);
-    return node;
+    return criar_no_formal(nome_parametro, tipo_parametro);
 }
 
 // ================= FEATURE =================
-ASTNode* feature() {
-    ASTNode *node = createNode("Feature");
+
+ASTNode* feature(){
+    char* nome_feature = strdup(currentToken.lexema);
     match(IDENTIFICADOR);
 
-    if (currentToken.tipo == LPAREN) {
-        ASTNode *methodNode = createNode("Method");
-        match(LPAREN);
-        if (currentToken.tipo == IDENTIFICADOR) {
-            addChild(methodNode, formal());
-            while (currentToken.tipo == COMMA) {
+    if(currentToken.tipo == LPAREN){
+        //metodo
+        advance(); 
+        //preparação para lista de parâmetros;
+        ASTNode* lista_formals = NULL;
+
+        if(currentToken.tipo == IDENTIFICADOR){
+            //guarda o primeiro parâmetro;
+            lista_formals = adicionar_comando(lista_formals,formal());
+
+            while(currentToken.tipo == COMMA){
                 match(COMMA);
-                addChild(methodNode, formal());
+                //liga os próximos parâmetros
+                lista_formals = adicionar_comando(lista_formals, formal());
             }
         }
+
         match(RPAREN);
         match(COLON);
+
+        // Salvo o tipo de retorno do método int, string;
+        char* tipo_retorno = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
-        match(LBRACE);
-        addChild(methodNode, expr()); // corpo do método
-        match(RBRACE);
-        addChild(node, methodNode);
-    } else {
-        ASTNode *attrNode = createNode("Attribute");
-        match(COLON);
-        match(IDENTIFICADOR);
-        if (currentToken.tipo == ATRIBUI) {
-            match(ATRIBUI);
-            addChild(attrNode, expr());
+
+        // ==========================================
+        // A REGRA DA PORTA FECHADA
+        // ==========================================
+        ASTNode* corpo_metodo = NULL;
+
+        if (currentToken.tipo == LBRACE) {
+            match(LBRACE);         // Entra no método
+            corpo_metodo = expr(); // Lê os móveis (comandos)
+            match(RBRACE);         // Sai do método
+        } 
+        else {
+            // Dá o erro na letra 'a' e o synchronize pula tudo até parar no '}'
+            match(LBRACE); 
+            
+            // ESSA É A LINHA MÁGICA: Consome o '}' para a esteira andar pro ';' !
+            match(RBRACE); 
         }
-        addChild(node, attrNode);
+        // ==========================================
+
+        match(SEMICOLON); // Agora ele vai achar o ';' certinho e ser feliz!
+
+        return criar_no_metodo(nome_feature, tipo_retorno, lista_formals, corpo_metodo);
+    }else{
+        //atributo;
+
+        match(COLON);
+        char* tipo_atributo = strdup(currentToken.lexema);
+        match(IDENTIFICADOR);
+
+        ASTNode* inicializacao = NULL;
+
+        if(currentToken.tipo == ATRIBUI){
+            match(ATRIBUI);
+
+            inicializacao = expr();
+        }
+        
+        match(SEMICOLON);
+        
+
+        return criar_no_atributo(nome_feature, tipo_atributo, inicializacao);
     }
-    match(SEMICOLON);
-    return node;
 }
 
 // ================= EXPRESSÕES =================
-ASTNode* expr() {
-    if (currentToken.tipo == IF) {
-        ASTNode *node = createNode("If");
-        match(IF);
-        addChild(node, expr());
+ASTNode* expr(){
+    //IF
+    if(currentToken.tipo == IF){
+        advance();
+        ASTNode* condicao = expr();//pega a conta do if ex: a>b
         match(THEN);
-        addChild(node, expr());
+        ASTNode* bloco_then = expr();//se for vdd
         match(ELSE);
-        addChild(node, expr());
+        ASTNode* bloco_else = expr();
         match(FI);
-        return node;
+
+        return criar_no_if(condicao, bloco_then, bloco_else);
     }
-    else if (currentToken.tipo == WHILE) {
-        ASTNode *node = createNode("While");
+    //WHILE
+    else if(currentToken.tipo == WHILE){
         match(WHILE);
-        addChild(node, expr());
+        ASTNode* condicao = expr();//regra do laço
         match(LOOP);
-        addChild(node, expr());
+        ASTNode* corpo = expr(); //pega a repetição;
         match(POOL);
-        return node;
+
+        return criar_no_while(condicao, corpo);
     }
-    else if (currentToken.tipo == NUMERO) {
-        ASTNode *node = createNode("Numero");
-        match(NUMERO);
-        return node;
-    }
-    else if (currentToken.tipo == IDENTIFICADOR) {
-        ASTNode *node = createNode("Identificador");
+
+    else if(currentToken.tipo == LET){
+        match(LET);
+
+        //lista para todas as variaveis criadas no let;
+        ASTNode* lista_variaveis = NULL;
+        
+        //primeira variável
+        char* nome = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
-        return node;
+        match(COLON);
+        char* tipo = strdup(currentToken.lexema);
+        match(IDENTIFICADOR);
+
+        ASTNode* init = NULL;
+        if(currentToken.tipo == ATRIBUI){
+            match(ATRIBUI);
+            init = expr();
+        }
+
+        //primeira variável na lista;
+        lista_variaveis = adicionar_comando(lista_variaveis, criar_no_let_var(nome, tipo, init));
+
+        //proximas variáveis;
+        while(currentToken.tipo == COMMA){
+            match(COMMA);   
+            char* prox_nome = strdup(currentToken.lexema);
+            match(IDENTIFICADOR);
+            match(COLON);
+            char* prox_tipo = strdup(currentToken.lexema);
+            match(IDENTIFICADOR);
+
+            ASTNode* prox_init = NULL;
+            if(currentToken.tipo == ATRIBUI){
+                match(ATRIBUI);
+                prox_init = expr();
+            }
+            lista_variaveis = adicionar_comando(lista_variaveis, criar_no_let_var(prox_nome, prox_tipo, prox_init));
+        }
+        match(IN);
+        ASTNode* corpo_let = expr();//codigo que vai usar as variaveis;
+        return criar_no_let(lista_variaveis, corpo_let);
     }
+    //CASE
+    else if(currentToken.tipo == CASE){
+        match(CASE);
+        ASTNode* expressao_principal = expr();
+        match(OF);
+
+        ASTNode* lista_cases = NULL;
+
+        do{
+            char* nome_case = strdup(currentToken.lexema);
+            match(IDENTIFICADOR);
+            match(COLON);
+            char* tipo_case = strdup(currentToken.lexema);
+            match(IDENTIFICADOR);
+            match(AVALIA);// setinha =>
+            ASTNode* corpo_case = expr();
+            match(SEMICOLON);
+
+            lista_cases = adicionar_comando(lista_cases, criar_no_case_branch(nome_case,tipo_case, corpo_case));
+        }while(currentToken.tipo == IDENTIFICADOR);
+
+        match(ESAC);
+
+        return criar_no_case(expressao_principal, lista_cases);
+    }
+    //BLOCO
+    else if(currentToken.tipo == LBRACE){
+        match(LBRACE);
+        ASTNode* lista_bloco = NULL;
+        do{
+            lista_bloco = adicionar_comando(lista_bloco, expr());
+            match(SEMICOLON);
+        }while(currentToken.tipo != RBRACE && currentToken.tipo != EOF_TOKEN);
+        match(RBRACE);
+        return criar_no_bloco(lista_bloco);
+    }
+    //new
+    else if(currentToken.tipo == NEW){
+        match(NEW);
+        char* tipo_novo = strdup(currentToken.lexema);
+        match(IDENTIFICADOR);
+        return criar_no_new(tipo_novo);
+    }
+
+    // ================= DEFAULT =================
     else {
-        return expr_rel();
+        // Se não for nenhuma palavra reservada, só pode ser uma conta ou chamada de função!
+        return expr_atrib(); 
     }
+}
+//================= ATRIBUIÇÃO =================
+ASTNode* expr_atrib(){
+    if (currentToken.tipo == IDENTIFICADOR && look().tipo == ATRIBUI) {
+        char* nome_var = strdup(currentToken.lexema);
+        advance();
+        advance();
+        ASTNode* valor_direito = expr_atrib();
+        return criar_no_atribuicao(nome_var, valor_direito);
+    }
+    return expr_not();
+}
+
+//================= NOT =================
+ASTNode* expr_not(){
+    
+    int quantidade_not=0;
+    
+    while(currentToken.tipo == NOT){
+        match(NOT);
+        quantidade_not++;
+    }
+    ASTNode* expressao = expr_rel();
+
+    for(int i=0; i<quantidade_not; i++){
+        expressao = criar_no_not(expressao);
+    }
+
+    return expressao;
 }
 
 // ================= RELACIONAL =================
 ASTNode* expr_rel() {
-    ASTNode *node = createNode("RelExpr");
-    addChild(node, expr_arit());
-    if (currentToken.tipo == MENOR ||
+    //lê o lado esquerdo, ou a conta inteira;
+    ASTNode* no_esquerdo = expr_arit();
+
+
+    while (currentToken.tipo == MENOR ||
         currentToken.tipo == MENOROUIGUAL ||
         currentToken.tipo == MAIOR ||
         currentToken.tipo == MAIOROUIGUAL ||
         currentToken.tipo == IGUAL) {
+
+        TokenTipo operador = currentToken.tipo;
         advance();
-        addChild(node, expr_arit());
+
+        ASTNode* no_direito = expr_arit();
+        no_esquerdo = criar_no_relacional(operador,no_esquerdo, no_direito);
     }
-    return node;
+
+    return no_esquerdo;
 }
 
 // ================= ARITMÉTICA =================
 ASTNode* expr_arit() {
-    ASTNode *node = createNode("AritExpr");
-    addChild(node, term());
-    while (currentToken.tipo == MAIS || currentToken.tipo == MENOS) {
+    ASTNode* no_esquerdo = term();
+
+    while (currentToken.tipo == MAIS ||
+        currentToken.tipo == MENOS) {
+
+        TokenTipo operador = currentToken.tipo;
         advance();
-        addChild(node, term());
+
+        ASTNode* no_direito = term();
+        no_esquerdo = criar_no_aritmetico(operador, no_esquerdo, no_direito);
     }
-    return node;
+
+    return no_esquerdo;
 }
 
 ASTNode* term() {
-    ASTNode *node = createNode("Term");
-    addChild(node, factor());
-    while (currentToken.tipo == MULTIPLICACAO || currentToken.tipo == DIVISAO) {
+    ASTNode* no_esquerdo = factor();
+
+    while (currentToken.tipo == MULTIPLICACAO ||
+        currentToken.tipo == DIVISAO) {
+
+        TokenTipo operador = currentToken.tipo;
         advance();
-        addChild(node, factor());
+
+        ASTNode* no_direito = factor();
+        no_esquerdo = criar_no_aritmetico(operador, no_esquerdo, no_direito);
     }
-    return node;
+    return no_esquerdo;
 }
 
+//FATOR
 ASTNode* factor() {
-    if (currentToken.tipo == NUMERO) {
-        ASTNode *node = createNode("Numero");
-        match(NUMERO);
-        return node;
+    if(currentToken.tipo == ISVOID) {
+        match(ISVOID);
+        ASTNode* expressao = factor();
+        return criar_no_isvoid(expressao);
     }
-    else if (currentToken.tipo == IDENTIFICADOR) {
-        ASTNode *node = createNode("Identificador");
+    else if(currentToken.tipo == COMPLEMENTO){
+        match(COMPLEMENTO);
+        ASTNode* expressao = factor();
+
+        return criar_no_complemento(expressao);
+    }
+    else{
+        return dispatch();
+    }
+}
+
+
+ASTNode* dispatch(){
+    ASTNode* expressao_base = primary();
+
+    if (currentToken.tipo == LPAREN) {
+        match(LPAREN);
+        ASTNode* argumentos = args();
+        match(RPAREN);
+        expressao_base = criar_no_dispatch_implicito(expressao_base, argumentos);
+    }
+
+    while(currentToken.tipo == DOT || currentToken.tipo == ARROBA) {
+        
+        char* tipo_estatico = NULL; // se houver, irá guardar
+        if (currentToken.tipo == ARROBA) {
+            match(ARROBA);
+            tipo_estatico = strdup(currentToken.lexema);
+            match(IDENTIFICADOR);
+        }
+        
+        match(DOT);// lê o ponto
+        char* nome_metodo = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
-        return node;
+        match(LPAREN);
+        ASTNode* argumentos = args();
+        match(RPAREN);
+
+        expressao_base = criar_no_dispatch_explicito(expressao_base, tipo_estatico,nome_metodo, argumentos);
     }
+
+    return expressao_base;
+}
+
+// ================= PRIMÁRIO (Os Átomos da Linguagem) =================
+ASTNode* primary() {
+    
+  
+    if (currentToken.tipo == NUMERO) {
+        char* valor = strdup(currentToken.lexema);
+        match(NUMERO);
+        return criar_no_inteiro(valor);
+    }
+    
+    
+    else if (currentToken.tipo == IDENTIFICADOR) {
+        char* nome = strdup(currentToken.lexema);
+        match(IDENTIFICADOR);
+        return criar_no_identificador(nome);
+    }
+    
+    
     else if (currentToken.tipo == LPAREN) {
         match(LPAREN);
-        ASTNode *node = expr();
+        // Pega o elevador de volta para o topo e lê toda a matemática de dentro!
+        ASTNode* expressao_interna = expr();
         match(RPAREN);
-        return node;
+        
+        // Retorna a árvore gigante que estava dentro dos parênteses como se fosse um bloco só
+        return expressao_interna;
     }
+    
+    
     else if (currentToken.tipo == STRING) {
-        ASTNode *node = createNode("String");
+        char* texto = strdup(currentToken.lexema);
         match(STRING);
-        return node;
+        return criar_no_string(texto);
     }
+    
+  
     else if (currentToken.tipo == TRUE) {
-        ASTNode *node = createNode("True");
         match(TRUE);
-        return node;
+        return criar_no_booleano(1); // 1 representa true em C
     }
     else if (currentToken.tipo == FALSE) {
-        ASTNode *node = createNode("False");
         match(FALSE);
-        return node;
+        return criar_no_booleano(0); // 0 representa false em C
     }
+    
+    
     else {
-        reportError("Factor inválido", currentToken.location.linha, currentToken.location.coluna);
-        synchronize();
-        return createNode("Erro");
+        reportError("Fator inválido",
+                    currentToken.location.linha,
+                    currentToken.location.coluna);
+        
+        // O synchronize() tenta pular os tokens bugados até achar um ponto e vírgula para não travar o compilador inteiro!
+        synchronize(); 
+        
+        // Retorna NULL porque o usuário digitou lixo onde deveria ter um número ou variável
+        return NULL; 
     }
 }
-
 // ================= ARGUMENTOS =================
 ASTNode* args() {
-    ASTNode *node = createNode("Args");
-    if (currentToken.tipo == RPAREN) return node;
-    addChild(node, expr());
+    
+    // 1. Se não tem argumentos (já fechou o parêntese), não devolve árvore nenhuma
+    if (currentToken.tipo == RPAREN) {
+        return NULL;
+    }
+
+    // 2. Lê o primeiro argumento e cria a "locomotiva" da nossa lista
+    ASTNode* lista_args = expr();
+
+    // 3. Enquanto tiver VÍRGULA (,) na esteira...
     while (currentToken.tipo == COMMA) {
         match(COMMA);
-        addChild(node, expr());
+        
+        // Lê o próximo argumento e engata atrás do anterior
+        lista_args = adicionar_argumento(lista_args, expr());
     }
-    return node;
-}
 
+    // 4. Devolve a lista inteira de argumentos amarradinha
+    return lista_args;
+}
 // ================= MAIN =================
 int main() {
-    arquivo = fopen("teste.txt", "r");
+    arquivo = fopen("arquivo.cl", "r");
+
     if (!arquivo) {
         printf("Erro ao abrir arquivo\n");
         return 1;
     }
 
     advance();
-    ASTNode *root = program();
-
-    if (errorCount > 0) {
+    
+    // 1. A MUDANÇA PRINCIPAL: Capturamos a raiz da árvore inteira!
+    ASTNode* arvore_sintatica = program();
+    
+    if (errorCount > 0 || currentToken.tipo != EOF_TOKEN) {
         for (int i = 0; i < errorCount; i++) {
             printf("%s\n", errors[i]);
             free(errors[i]);
         }
-    } else {
-        printf("Compilação concluída sem erros!\n");
-        printAST(root, 0);
+        if(currentToken.tipo != EOF_TOKEN){
+            printf("Erro: tokens restantes\n");
+        }
+        
+        printf("\n--- ÁRVORE SINTÁTICA COM ERRO DETECTADO---\n");
+        imprimir_arvore(arvore_sintatica, 0); 
+    }
+    else {
+        printf("Parsing realizado com sucesso!\n");
+        
+       // 2. O GRANDE TESTE: Imprimir a árvore no terminal para ver se funcionou!
+        printf("\n--- ÁRVORE SINTÁTICA ---\n");
+        imprimir_arvore(arvore_sintatica, 0); 
+        
+        // 3. LIMPEZA: Como programamos em C, temos que liberar a memória no final!
+        liberar_arvore(arvore_sintatica);
     }
 
     fclose(arquivo);
