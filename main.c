@@ -31,9 +31,13 @@ int main() {
         imprimir_arvore(root, 0); 
         
         int success = checkProgram(root); // chamada da análise semântica
+        printf("----------");
+        imprimir_tabelas();
         if(success == 1){
             printf("Analise semantica realizada com sucesso!\n");
-            imprimir_tabelas();
+        }
+        else{
+            printf("Erros encontrados na analise semantica.\n");
         }
 
         liberar_arvore(root);
