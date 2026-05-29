@@ -1,8 +1,12 @@
 #include "parser.h"
 #include "semantic.h"
 
+extern Token currentToken;
+
+FILE *arquivo;
+
 int main() {
-    arquivo = fopen("teste.txt", "r");
+    arquivo = fopen("arquivo.cl", "r");
     if (!arquivo) {
         printf("Erro ao abrir arquivo\n");
         return 1;
@@ -16,10 +20,27 @@ int main() {
             printf("%s\n", errors[i]);
             free(errors[i]);
         }
-    } else {
-        printf("Compilação concluída sem erros!\n");
-        printAST(root, 0);
-        checkExpr(root); // chamada da análise semântica
+        if(currentToken.tipo != EOF_TOKEN){
+            printf("Erro: tokens restantes\n");
+        }    
+    }
+    else {
+        printf("Parsing realizado com sucesso!\n");
+        
+        printf("\n--- ÁRVORE SINTÁTICA ---\n");
+        imprimir_arvore(root, 0); 
+        
+        int success = checkProgram(root); // chamada da análise semântica
+        printf("----------");
+        imprimir_tabelas();
+        if(success == 1){
+            printf("Analise semantica realizada com sucesso!\n");
+        }
+        else{
+            printf("Erros encontrados na analise semantica.\n");
+        }
+
+        liberar_arvore(root);
     }
 
     fclose(arquivo);

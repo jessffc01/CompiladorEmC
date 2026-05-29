@@ -15,6 +15,8 @@ const char* strTipos[] = {
     "MAIOR",
     "MENOR",
     "IGUAL",
+    "COMPLEMENTO",
+    "AVALIA",
     "ATRIBUI",
     "CLASS",
     "INHERITS",
@@ -224,7 +226,16 @@ Token getNextToken(FILE *arquivo) {
             t.location.coluna = coluna;
             coluna += 1;
             return t;
-            break;    
+            break;
+            
+        case '~':
+            t.tipo = COMPLEMENTO;
+            strcpy(t.lexema, "~");
+            t.location.linha = linha;
+            t.location.coluna = coluna;
+            coluna += 1;
+            return t;
+            break; 
         
         case '<':    
             next = fgetc(arquivo);
@@ -262,11 +273,20 @@ Token getNextToken(FILE *arquivo) {
             break;*/
 
         case '=':
-            t.tipo = IGUAL;
-            strcpy(t.lexema, "=");
+            next = fgetc(arquivo);
             t.location.linha = linha;
             t.location.coluna = coluna;
-            coluna += 1;
+            if (next == '>') {
+                t.tipo = AVALIA;
+                strcpy(t.lexema, "=>");
+                coluna += 2;
+            }
+            else{
+                t.tipo = IGUAL;
+                strcpy(t.lexema, "=");
+                ungetc(next, arquivo);
+                coluna += 1;
+            }
             return t;
             break;
         
@@ -444,33 +464,5 @@ Token getNextToken(FILE *arquivo) {
             t.location.coluna = coluna;
             coluna += 1;
             return t;
-    }
-}
-
-TokenList* new_item(Token t){
-    TokenList* node = (TokenList*)malloc(sizeof(TokenList));
-    node->token = t;
-    node->next = NULL;
-    return node;
-}
-TokenList* push_back(TokenList* head, Token t){
-    TokenList* node = new_item(t);
-    if(head == NULL){
-        return node;
-    }
-
-    TokenList* back = head;
-    while(back->next!=NULL){
-        back = back->next;
-    }
-
-    back->next = node;
-    return head;
-}
-
-void free_list(TokenList* head){
-    if(head!=NULL){
-        free_list(head->next);
-        free(head);
     }
 }

@@ -1,30 +1,61 @@
--- Comentario
+(* hairy . . .*)
 
-class Arvore{
-    fotossintese(hora: Int): Bool {
-        if 19 <= hora then false else
-        if hora < 6 then false else true
-        fi fi
-    };
+class Bazz inherits IO {
+
+ h : Int <- 1;
+
+ g : Foo <- case self of
+		 	n : Bazz => (new Foo);
+		 	n : Razz => (new Bar);
+			n : Foo => (new Razz);
+			n : Bar => n;
+		 esac;
+
+ i : Object <- printh();
+
+ printh() : Int { { out_int(h); 0; } };
+
+ doh() : Int { (let i: Int <- h in { h <- h + 1; i; } ) };
 };
 
-class Main inherits IO{
-    main(): Object{
-        (let
-        tree: Arvore  <- (new Arvore),
-        hora: Int <- in_int(),
-        fot: Boolean <- tree.fotossintese(hora)
-        in {
-        if fot 
-        then out_string("Sol presente, hora da fotossintese.\n") 
-        else out_string("Sem sol, sem fotossintese.\n")
-        fi;
-        x <- 10 + 5; -- Soma e atribuicao
-        msg <- "resultado";
-        (* y <- 0 + 15;
-         a <- 2; 
-        msg <- "result" *)
-        out_string("Teste Comentario.\n");
-        } )
-    }; 
+class Foo inherits Bazz {
+ a : Razz <- case self of
+		 n : Razz => (new Bar);
+		 n : Foo => (new Razz);
+		 n : Bar => n;
+ 	 esac;
+
+ b : Int <- a.doh() + g.doh() + doh() + printh();
+
+ doh() : Int { (let i : Int <- h in { h <- h + 2; i; } ) };
+
+};
+
+class Razz inherits Foo {
+
+ e : Bar <- case self of
+		 n : Razz => (new Bar);
+		 n : Bar => n;
+		esac;
+
+ f : Int <- a@Bazz.doh() + g.doh() + e.doh() + doh() + printh();
+
+};
+
+class Bar inherits Razz {
+
+ c : Int <- doh();
+
+ d : Object <- printh();
+};
+
+(* scary . . . *)
+class Main inherits IO {
+ a : Bazz <- new Bazz;
+ b : Foo <- new Foo;
+ c : Razz <- new Razz;
+ d : Bar <- new Bar;
+
+ main(): String { { out_string("\n") ; "do nothing" ; } };
+
 };
