@@ -22,17 +22,18 @@ int sm_errors = 0;
 extern Symbol* tabela_classes;
 extern Symbol* tabela_atributos;
 extern Symbol* tabela_metodos;
-extern Symbol* tabela_variaveis;
+extern Scope* escopo_atual;
 /* ==========================================
         PROCURA PAI DE UMA CLASSE
 ========================================== */
 
-const char* getParent(const char* className) {
+char* getParent(char* className) {
     Symbol* atual = tabela_classes;
     while(atual != NULL) {
         if(strcmp(atual->nome, className) == 0) {
             return atual->info.smb_classe.parentName;
         }
+        atual = atual->next;
     }
 
     return NULL;
@@ -42,12 +43,12 @@ const char* getParent(const char* className) {
       VERIFICA SE CHILD É SUBTIPO DE PARENT
 ========================================== */
 
-int isSubtype(const char* child, const char* parent) {
+int isSubtype(char* child, char* parent) {
     if(strcmp(child, parent) == 0) {
         return 1;
     }
 
-    const char* current = child;
+    char* current = child;
 
     while(current != NULL && strcmp(current, "") != 0) {
         if(strcmp(current, parent) == 0) {
@@ -65,9 +66,8 @@ int isSubtype(const char* child, const char* parent) {
          MENOR ANCESTRAL COMUM
 ========================================== */
 
-const char* leastCommonAncestor(const char* type1,
-                                const char* type2) {
-    const char* current = type1;
+char* leastCommonAncestor(char* type1,  char* type2) {
+    char* current = type1;
 
     while(current != NULL && strcmp(current, "") != 0) {
 
@@ -85,49 +85,68 @@ const char* leastCommonAncestor(const char* type1,
         VERIFICADOR DE ITEM JÁ EXISTENTE
 ========================================== */
 
-int searchItem(const char* nome, Symbol* tabela_simbolos, NodeType tipo, char* classeOrigem){
+int searchItem(char* nome, Symbol* tabela_simbolos, NodeType tipo_node, char* classeOrigem, ASTNode* args, char* tipo_retorno){
     Symbol* item = buscar_simbolo(nome, tabela_simbolos);
     if(item != NULL){
+        int sameClass;
         switch(item->tipo_simbolo){
             case SYM_CLASSE:
-                if(item->info.smb_classe.confirmado == 0){
+                /*if(item->info.smb_classe.confirmado == 0){
                     item->info.smb_classe.confirmado = 1;
                     return 0;
-                }
+                }*/
                 sm_errors += 1;
                 return 1;
                 break;
         
             case SYM_ATRIBUTO:
-                int sameClass = strcmp(classeOrigem, item->info.smb_atributo.classOrigem);
-                if(sameClass < 0){
+                sameClass = strcmp(classeOrigem, item->info.smb_atributo.classOrigem);
+                if(sameClass != 0){
                     return 0;
                 }
-                else if(sameClass == 0 && item->info.smb_atributo.confirmado == 0){
+                /*else if(sameClass == 0 && item->info.smb_atributo.confirmado == 0){
                     item->info.smb_atributo.confirmado = 1;
                     return 0;
-                }
+                }*/
                 
                 sm_errors += 1;
                 return 1;
                 break;
 
             case SYM_METODO:
-                int sameClass = strcmp(classeOrigem, item->info.smb_metodo.classOrigem);
-                if(sameClass < 0){
+                sameClass = strcmp(classeOrigem, item->info.smb_metodo.classOrigem);
+                if(sameClass != 0){
                     return 0;
                 }
-                else if(sameClass == 0 && item->info.smb_metodo.confirmado == 0){
-                    item->info.smb_metodo.confirmado = 1;
+                /*else if(item->info.smb_metodo.confirmado == 0 || tipo_node == NODE_DISPATCH_IMPLICITO || tipo_node == NODE_DISPATCH_EXPLICITO){
+                    Symbol* parametros_it = item->info.smb_metodo.parametros;
+                    while(parametros_it != NULL){
+                        if(strcmp(parametros_it->info.smb_formal.tipo, args->dados.formal.tipo_parametro) != 0){
+                            sm_errors += 1;
+                            return 1;    
+                        }
+
+                        parametros_it = parametros_it->next;
+                        args = args->proximo;
+                        if((parametros_it == NULL && args != NULL) || (parametros_it == NULL && args != NULL)){
+                            sm_errors += 1;
+                            return 1;
+                        }
+                    }
+                    if(item->info.smb_metodo.confirmado == 0){
+                        item->info.smb_metodo.tipo_retorno = tipo_retorno;
+                        item->info.smb_metodo.confirmado = 1;
+                    }
                     return 0;
-                }
+                }*/
+                
                 sm_errors += 1;
                 return 1;
                 break;
 
             case SYM_VAR:
-                int sameClass = strcmp(classeOrigem, item->info.smb_metodo.classOrigem);
-                if(sameClass < 0){
+                sameClass = strcmp(classeOrigem, item->info.smb_metodo.classOrigem);
+                if(sameClass != 0){
                     return 0;
                 }
                 sm_errors += 1;
@@ -142,7 +161,7 @@ int searchItem(const char* nome, Symbol* tabela_simbolos, NodeType tipo, char* c
         VERIFICADOR DE VALIDADE DE CLASSE PAI
 ========================================== */
 
-int verifyParent(const char* pai){
+int verifyParent(char* pai){
     if(strcmp(pai, "Int") == 0 || strcmp(pai, "String") == 0 || strcmp(pai, "Bool") == 0){
         printf("Erro semântico: Não é permitido ter herança do tipo %s\n", pai);
         sm_errors += 1;
@@ -166,37 +185,31 @@ int verifyParent(const char* pai){
         ANALISADOR SEMÂNTICO
 ========================================== */
 int checkProgram(ASTNode* node){
+    //printf("\nChecando classes...\n");
+    init_symbols();
     ASTNode* atual = node;
 
     //Verificar se as classes são válidas e as adicionar à tabela de classes
     while(atual != NULL){
         char* nome = atual->dados.classe.nome_classe;
-        int nomeOcupado = searchItem(nome, tabela_classes, NODE_CLASSE, NULL);
+        int nomeOcupado = searchItem(nome, tabela_classes, NODE_CLASSE, NULL, NULL, NULL);
         int paiValido = verifyParent(atual->dados.classe.nome_pai);
         if(paiValido == 0){
             atual->dados.classe.nome_pai = "Object";
         }
         if(nomeOcupado == 1){
             printf("Erro semântico: Classe '%s' já existe\n", nome); 
-            int i = 0;
-            char strnum[20];
-            char* nomeOriginal = strdup(nome);
-            while(TRUE){
-                sprintf(strnum, "%d", i);
-                strcat(nome, strnum);
-                nomeOcupado = searchItem(nome, tabela_classes, NODE_CLASSE, NULL);
-                if(nomeOcupado == 0){
-                    break;
-                }
-                nome = nomeOriginal;
-                i++;
-            }
         }
-        adicionar_symbol_classe(nome, atual->dados.classe.nome_pai, 1);
+        adicionar_symbol_classe(nome, atual->dados.classe.nome_pai);
+        atual = atual->proximo;
+    }
 
-        //Verificar as features da classe
-        checkFeatures(node->dados.classe.lista_features, nome);
-
+    //imprimir_tabela(tabela_classes);
+    //printf("\n-----Vamos checar as features de cada classe:-----\n");
+    atual = node;
+    while(atual!= NULL){
+    //Verificar as features da classe
+        checkFeatures(atual->dados.classe.lista_features, atual->dados.classe.nome_classe);
         atual = atual->proximo;
     }
 
@@ -209,59 +222,45 @@ int checkProgram(ASTNode* node){
 }
 
 void checkFeatures(ASTNode* node, char* classeOrigem){
+    //printf("\nChecando features...\n");
     ASTNode* atual = node;
+    ASTNode* init;
+    ASTNode* corpo;
     int nomeOcupado;
+    char* tipoFeature;
+    char* nome;
+    char* nomeMetodo;
+
+    //Adicionando features às tabelas
     while(atual != NULL){
         switch(atual->tipo){
             case NODE_ATRIBUTO:
-                char* nome = atual->dados.atributo.nome_atributo;
-                nomeOcupado = searchItem(nome, tabela_atributos, atual->tipo, classeOrigem);
+
+                tipoFeature = atual->dados.atributo.tipo_atributo;
+                nome = atual->dados.atributo.nome_atributo;
+                nomeOcupado = searchItem(nome, tabela_atributos, atual->tipo, classeOrigem, NULL, NULL);
                 if(nomeOcupado == 1){
                     printf("Erro semântico: Atributo '%s' já existe neste escopo.\n", nome); 
                 }
-
-                ASTNode* init = atual->dados.atributo.inicializacao;
-                char* tipo = atual->dados.atributo.tipo_atributo;
-                if(init != NULL){
-                    char* tipo_init = checkExpr(init, classeOrigem);
-                    if(isSubtype(tipo_init, tipo) == 1){
-                        adicionar_symbol_atributo(nome, tipo, classeOrigem, 1);
-                    }
-                    else{
-                        printf("Erro semântico: Tipo da expressão não corresponde ao do atributo.\n", nome); 
-                    }
-                }
                 else{
-                    adicionar_symbol_atributo(nome, tipo, classeOrigem, 1);
+                    adicionar_symbol_atributo(nome, tipoFeature, classeOrigem);
                 }
-                
                 break;
 
             case NODE_METODO:
-                char* nome = atual->dados.metodo.nome_metodo;
-                nomeOcupado = searchItem(nome, tabela_metodos, atual->tipo, classeOrigem);
-                if(nomeOcupado == 1){
-                    printf("Erro semantico: Metodo '%s' ja existe neste escopo.\n", nome); 
-                }
 
-                ASTNode* corpo = atual->dados.metodo.corpo;
-                char* tipo = atual->dados.metodo.tipo_retorno;
-                if(tipo == "SELF_TYPE"){
-                    tipo = classeOrigem;
-                }
-                if(init != NULL){
-                    char* tipo_corpo = checkExpr(corpo, classeOrigem);
-                    if(isSubtype(tipo_corpo, tipo) == 1){
-                        adicionar_symbol_metodo(nome, tipo, classeOrigem, 1, atual->dados.metodo.lista_formais);
-                    }
-                    else{
-                        printf("Erro semântico: Tipo da expressão '%s' não corresponde ao esperado pelo metodo (%s).\n", tipo_corpo, tipo); 
-                    }
+                tipoFeature = atual->dados.metodo.tipo_retorno;
+                nomeMetodo = atual->dados.metodo.nome_metodo;
+                //printf("\nMetodo %s\n", nomeMetodo);
+                nomeOcupado = searchItem(nomeMetodo, tabela_metodos, atual->tipo, classeOrigem, NULL, atual->dados.metodo.tipo_retorno);
+                if(nomeOcupado == 1){
+                    printf("Erro semantico: Metodo '%s' ja existe neste escopo.\n", nomeMetodo); 
                 }
                 else{
-                    adicionar_symbol_metodo(nome, tipo, classeOrigem, 1, atual->dados.metodo.lista_formais);
+                    adicionar_symbol_metodo(nomeMetodo, tipoFeature, classeOrigem, atual->dados.metodo.lista_formais);
                 }
                 break;
+
             default:
                 sm_errors += 1;
                 printf("Erro semântico: Tipo de feature inválido.\n");
@@ -269,21 +268,89 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
         }
         atual = atual->proximo;
     }
+
+    //imprimir_tabela(tabela_metodos);
+    //Verificando inicializações de atributos / corpo de métodos
+    //imprimir_tabela(tabela_atributos);
+    //printf("\nVerificando expressões das features...\n");
+    atual = node;
+    while(atual!= NULL){
+        switch(atual->tipo){
+            case NODE_ATRIBUTO:
+                nome = atual->dados.atributo.nome_atributo;
+                init = atual->dados.atributo.inicializacao;
+                tipoFeature = atual->dados.atributo.tipo_atributo;
+                if(init != NULL){
+                    //printf("\nCheck attribute init\n");
+                    char* tipo_init = checkExpr(init, classeOrigem);
+                    if(isSubtype(tipo_init, tipoFeature) == 0){
+                        printf("Erro semântico: Tipo da expressão não corresponde ao do atributo.\n"); 
+                    }
+                }
+                break;
+            
+            case NODE_METODO:
+                corpo = atual->dados.metodo.corpo;
+                tipoFeature = atual->dados.metodo.tipo_retorno;
+                if(strcmp(tipoFeature, "SELF_TYPE") == 0){
+                    tipoFeature = classeOrigem;
+                }
+                if(corpo != NULL){
+                    //printf("\nCheck method body\n");
+                    char* tipo_corpo = checkExpr(corpo, classeOrigem);
+                    if(isSubtype(tipo_corpo, tipoFeature) == 0){
+                        printf("Erro semântico: Tipo '%s' não corresponde ao esperado pelo metodo (%s).\n", tipo_corpo, tipoFeature); 
+                    }
+                }
+                break;
+        }
+        atual = atual->proximo;
+    }
 }
 
-const char* checkExpr(ASTNode* node, char* classeOrigem) {
+char* checkExpr(ASTNode* node, char* classeOrigem) {
+    //printf("\nVerificando nova expressão...\n");
     /* ---------- ATRIBUIÇÃO ---------- */
     if(node->tipo == NODE_ATRIBUICAO){
-
-        const char* valorType = checkExpr(node->dados.atribuicao.valor, classeOrigem);
-
+        Scope* escopo_it = escopo_atual;
+        Symbol* sym_var;
+        while(escopo_it!=NULL){
+            sym_var = buscar_simbolo(node->dados.atribuicao.nome_variavel, escopo_atual->tabela_variaveis);
+            if(sym_var != NULL) {
+                break;
+            }
+            escopo_it = escopo_it->anterior;
+        }
+        
+        char* valorType = checkExpr(node->dados.atribuicao.valor, classeOrigem);
+        
+        if(sym_var == NULL){
+            sym_var = buscar_simbolo(node->dados.atribuicao.nome_variavel, tabela_atributos);
+            if(sym_var == NULL){
+                adicionar_symbol_var(node->dados.atribuicao.nome_variavel, valorType, classeOrigem);
+            }
+        }
+        switch(sym_var->tipo_simbolo){
+            case SYM_ATRIBUTO:
+                if(strcmp(sym_var->info.smb_atributo.tipo, valorType) != 0) {
+                printf("Erro semântico: Tipo da atribuição não corresponde ao do atributo.\n");
+                sm_errors += 1;
+                }
+                break;
+            case SYM_VAR:
+                if(strcmp(sym_var->info.smb_var.tipo, valorType) != 0) {
+                    printf("Erro semântico: Tipo da atribuição não corresponde ao da variável.\n");
+                    sm_errors += 1;
+                }
+                break;
+        }
         return valorType;
     }
 
     /* ---------- IF ---------- */
     else if(node->tipo == NODE_IF) {
 
-        const char* condType =
+        char* condType =
             checkExpr(node->dados.no_if.condicao, classeOrigem);
 
         if(strcmp(condType, "Bool") != 0) {
@@ -293,29 +360,72 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
             sm_errors += 1;
         }
 
-        const char* thenType =
+        char* thenType =
             checkExpr(node->dados.no_if.bloco_then, classeOrigem);
 
-        const char* elseType =
+        char* elseType =
             checkExpr(node->dados.no_if.bloco_else, classeOrigem);
 
         return leastCommonAncestor(thenType, elseType);
     }
 
     /* ---------- LET ---------- */
-        else if(node->tipo == NODE_LET) {
+    else if (node->tipo == NODE_LET) {
+        // Entrar em escopo novo
+        push_scope();
 
+        ASTNode* decl = node->dados.no_let.lista_variaveis;
+        while (decl != NULL) {
+            char* nome = decl->dados.let_var.nome_variavel;
+            char* tipo = decl->dados.let_var.tipo_variavel;
+            ASTNode* init = decl->dados.let_var.inicializacao;
+
+            if (init != NULL) {
+                char* tipo_init = checkExpr(init, classeOrigem);
+                if (isSubtype(tipo_init, tipo) == 0) {
+                    printf("Erro semântico: inicialização de '%s' incompatível com tipo '%s'.\n", nome, tipo);
+                    sm_errors++;
+                }
+            }
+
+            adicionar_symbol_var(nome, tipo, classeOrigem);
+            decl = decl->proximo;
+        }
+
+        // Avalia o corpo do LET
+        char* result = checkExpr(node->dados.no_let.corpo, classeOrigem);
+
+        // Sai do escopo (variáveis somem)
+        pop_scope();
+
+        return result;
     }
 
     /* ---------- CASE ---------- */
+    else if (node->tipo == NODE_CASE)
+    {
+        push_scope();
+        ASTNode *branch = node->dados.no_case.lista_cases;
+        char *resultType = "Object";
+        while (branch != NULL)
+        {
+            char *nome = branch->dados.case_branch.nome_variavel;
+            char *tipo = branch->dados.case_branch.tipo_variavel;
+            ASTNode *expr = branch->dados.case_branch.corpo;
+            adicionar_symbol_var(nome, tipo, classeOrigem);
 
-    else if(node->tipo == NODE_CASE){
-    
+            char *branchType = checkExpr(expr, classeOrigem);
+            resultType = leastCommonAncestor(resultType, branchType);
+            branch = branch->proximo;
+        }
+        pop_scope();
+
+        return resultType;
     }
     /* ---------- WHILE ---------- */
 
     else if(node->tipo == NODE_WHILE) {
-        const char* condType =
+        char* condType =
             checkExpr(node->dados.no_while.condicao, classeOrigem);
 
         if(strcmp(condType, "Bool") != 0) {
@@ -333,7 +443,7 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- BLOCO ---------- */
 
     else if(node->tipo == NODE_BLOCO) {
-        const char* lastType = "Object";
+        char* lastType = "Object";
 
         ASTNode* last = node->dados.bloco.lista_comandos;
         while(last->proximo != NULL) {
@@ -348,10 +458,10 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- SOMA, SUBTRAÇÃO, MULTIPLICAÇÃO E DIVISÃO ---------- */
 
     else if(node->tipo == NODE_ARITMETICO) {
-        const char* left =
+        char* left =
             checkExpr(node->dados.operacao_binaria.esquerdo, classeOrigem);
 
-        const char* right =
+        char* right =
             checkExpr(node->dados.operacao_binaria.direito, classeOrigem);
 
         if(strcmp(left, "Int") != 0 ||
@@ -368,10 +478,10 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- MENOR, MENOR OU IGUAL, OU IGUALDADE ---------- */
 
     else if(node->tipo == NODE_RELACIONAL) {
-        const char* left =
+        char* left =
             checkExpr(node->dados.operacao_binaria.esquerdo, classeOrigem);
 
-        const char* right =
+        char* right =
             checkExpr(node->dados.operacao_binaria.direito, classeOrigem);
         
         int leftInt = strcmp(left, "Int");
@@ -401,22 +511,84 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
         return "Bool";
     }
 
-    /* ---------- DISPATCH IMPLÍCITO ---------- */
+   /* ---------- DISPATCH IMPLÍCITO ---------- */
+    else if (node->tipo == NODE_DISPATCH_IMPLICITO)
+    {
+        //printf("\nDispatch impl.\n");
+        //const char *exprType = checkExpr(node->dados.dispatch.expressao_base, classeOrigem);
 
-    else if(node->tipo == NODE_DISPATCH_IMPLICITO){
-    
+        Symbol *metodo = buscar_simbolo(node->dados.dispatch.nome_metodo, tabela_metodos);
+        if (metodo == NULL)
+        {
+            printf("Erro semântico: método '%s' não encontrado.\n",
+                   node->dados.dispatch.nome_metodo);
+            sm_errors++;
+            return "Object";
+        }
+
+        ASTNode *args = node->dados.dispatch.argumentos;
+        Symbol *formais = metodo->info.smb_metodo.parametros; // <-- corrigido
+        while (args != NULL && formais != NULL)
+        {
+            char *argType = checkExpr(args, classeOrigem);
+            if (isSubtype(argType, formais->info.smb_formal.tipo) == 0)
+            {
+                printf("Erro semântico: argumento incompatível no método '%s'.\n",
+                       node->dados.dispatch.nome_metodo);
+                sm_errors++;
+            }
+            args = args->proximo;
+            formais = formais->next;
+        }
+
+        return metodo->info.smb_metodo.tipo_retorno;;
     }
 
     /* ---------- DISPATCH EXPLÍCITO ---------- */
+    else if (node->tipo == NODE_DISPATCH_EXPLICITO)
+    {
+        //printf("\nDispatch expl.\n");
+        char *exprType = checkExpr(node->dados.dispatch.expressao_base, classeOrigem);
+        char *targetType = node->dados.dispatch.tipo_estatico;
 
-    else if(node->tipo == NODE_DISPATCH_EXPLICITO){
-    
+        if (isSubtype(exprType, targetType) == 0)
+        {
+            printf("Erro semântico: '%s' não é subtipo de '%s' em dispatch explícito.\n",
+                   exprType, targetType);
+            sm_errors++;
+        }
+
+        Symbol *metodo = buscar_simbolo(node->dados.dispatch.nome_metodo, tabela_metodos);
+        if (metodo == NULL)
+        {
+            printf("Erro semântico: método '%s' não encontrado em '%s'.\n",
+                   node->dados.dispatch.nome_metodo, targetType);
+            sm_errors++;
+            return "Object";
+        }
+
+        ASTNode *args = node->dados.dispatch.argumentos;
+        Symbol *formais = metodo->info.smb_metodo.parametros; // <-- corrigido
+        while (args != NULL && formais != NULL)
+        {
+            char *argType = checkExpr(args, classeOrigem);
+            if (isSubtype(argType, formais->info.smb_formal.tipo) == 0)
+            {
+                printf("Erro semântico: argumento incompatível no método '%s'.\n",
+                       node->dados.dispatch.nome_metodo);
+                sm_errors++;
+            }
+            args = args->proximo;
+            formais = formais->next;
+        }
+
+        return metodo->info.smb_metodo.tipo_retorno;
     }
 
     /* ---------- NEW ---------- */
 
     else if(node->tipo == NODE_NEW){
-        if(node->dados.valor_lexico = "SELF_TYPE"){
+        if(strcmp(node->dados.valor_lexico, "SELF_TYPE") == 0){
             return classeOrigem;
         }
         else{
@@ -427,7 +599,7 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- NOT ---------- */
 
     else if(node->tipo == NODE_NOT){
-        const char* type_expr = checkExpr(node->dados.operacao_unaria.expressao, classeOrigem);
+        char* type_expr = checkExpr(node->dados.operacao_unaria.expressao, classeOrigem);
 
         if(strcmp(type_expr, "Bool") < 0){
             printf("Erro semântico: "
@@ -441,7 +613,7 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- COMPLEMENTO ---------- */
 
     else if(node->tipo == NODE_COMPLEMENTO){
-        const char* type_expr = checkExpr(node->dados.operacao_unaria.expressao, classeOrigem);
+        char* type_expr = checkExpr(node->dados.operacao_unaria.expressao, classeOrigem);
         
         if(strcmp(type_expr, "Int") < 0){
             printf("Erro semântico: "
@@ -455,10 +627,47 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- ISVOID ---------- */
 
     else if(node->tipo == NODE_ISVOID){
-        
+        char* type_expr = checkExpr(node->dados.operacao_unaria.expressao, classeOrigem);
+
+        return "Bool";
     }
 
+    /* ---------- IDENTIFICADOR ---------- */
 
+    else if(node->tipo == NODE_IDENTIFICADOR) {
+        
+        // CORREÇÃO: Usando a nomenclatura exata da union no ast.h
+        char* nome = node->dados.valor_lexico; 
+
+        // 1. Regra do 'self'
+        if(strcmp(nome, "self") == 0) {
+            return "SELF_TYPE"; 
+        }
+
+        // 2. Procurar na Tabela de Variáveis Locais / Parâmetros
+        Scope* escopo_it = escopo_atual;
+        while(escopo_it!=NULL){
+            Symbol* sym_var = buscar_simbolo(nome, escopo_atual->tabela_variaveis);
+            if(sym_var != NULL) {
+                return sym_var->info.smb_var.tipo; 
+            }
+            escopo_it = escopo_it->anterior;
+        }
+
+        // 3. Procurar na Tabela de Atributos (da própria classe ou herdados)
+        Symbol* sym_attr = buscar_simbolo(nome, tabela_atributos);
+        if(sym_attr != NULL) {
+            if(isSubtype(classeOrigem, sym_attr->info.smb_atributo.classOrigem) == 1) {
+                return sym_attr->info.smb_atributo.tipo;
+            }
+        }
+
+        // 4. Variável fantasma (Erro!)
+        printf("Erro semântico: Identificador '%s' não declarado neste escopo.\n", nome);
+        sm_errors += 1;
+        
+        return "Object"; 
+    }
 
     /* ---------- NÚMERO ---------- */
 
@@ -480,11 +689,10 @@ const char* checkExpr(ASTNode* node, char* classeOrigem) {
         return "String";
     }
 
-
     /* ---------- FALLBACK ---------- */
 
     else {
-        printf("Aviso: tipo desconhecido para %s\n",
+        printf("Aviso: comportamento desconhecido para o NodeType %d\n",
                node->tipo);
         sm_errors += 1;
         return "Object";

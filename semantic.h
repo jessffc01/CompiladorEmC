@@ -25,31 +25,31 @@
         PROCURA PAI DE UMA CLASSE
 ========================================== */
 
-const char* getParent(const char* className);
+char* getParent(char* className);
 
 /* ==========================================
       VERIFICA SE CHILD É SUBTIPO DE PARENT
 ========================================== */
 
-int isSubtype(const char* child, const char* parent);
+int isSubtype(char* child, char* parent);
 
 /* ==========================================
          MENOR ANCESTRAL COMUM
 ========================================== */
 
-const char* leastCommonAncestor(const char* type1, const char* type2);
+char* leastCommonAncestor(char* type1, char* type2);
 
 /* ==========================================
         VERIFICADOR DE ITEM JÁ EXISTENTE
 ========================================== */
 
-int searchItem(const char* nome, Symbol* tabela_simbolos, NodeType tipo, char* classeOrigem);
+int searchItem(char* nome, Symbol* tabela_simbolos, NodeType tipo_node, char* classeOrigem, ASTNode* args, char* tipo_retorno);
 
 /* ==========================================
         VERIFICADOR DE VALIDADE DE CLASSE PAI
 ========================================== */
 
-int verifyParent(const char* pai);
+int verifyParent(char* pai);
 
 /* ==========================================
         ANALISADOR SEMÂNTICO
@@ -58,6 +58,6 @@ int checkProgram(ASTNode* node);
 
 void checkFeatures(ASTNode* node, char* classeOrigem);
 
-const char* checkExpr(ASTNode* node, char* classeOrigem);
+char* checkExpr(ASTNode* node, char* classeOrigem);
 
 #endif
