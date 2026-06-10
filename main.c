@@ -30,14 +30,14 @@ int main() {
         printf("\n--- ÁRVORE SINTÁTICA ---\n");
         imprimir_arvore(root, 0); 
         
-        int success = checkProgram(root); // chamada da análise semântica
+        int sm_errors = checkProgram(root); // chamada da análise semântica
         printf("----------");
         imprimir_tabelas();
-        if(success == 1){
+        if(sm_errors == 0){
             printf("Analise semantica realizada com sucesso!\n");
         }
         else{
-            printf("Erros encontrados na analise semantica.\n");
+            printf("%d Erros encontrados na analise semantica.\n", sm_errors);
         }
 
         liberar_arvore(root);
