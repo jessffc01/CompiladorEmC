@@ -17,7 +17,7 @@ void init_symbols(){
     tabela_atributos = NULL;
     tabela_metodos = NULL;
     escopo_atual = NULL;
-   
+    push_scope();
     adicionar_symbol_classe("Object", "");
     adicionar_symbol_classe("Int", "Object");
     adicionar_symbol_classe("Bool", "Object");
@@ -87,6 +87,7 @@ Symbol* inserir_simbolo(char* nome, SymbolType tipo, /*int linha,*/ Symbol* tabe
     else{
     // Insere no final da lista para manter a ordem dos parâmetros
         novo_simbolo->info.smb_formal.tipo = tipoParam;
+        novo_simbolo->next = NULL;
         if(tabela_simbolos!=NULL){
             Symbol* back = tabela_simbolos;
             while(back->next != NULL){
@@ -102,7 +103,7 @@ Symbol* inserir_simbolo(char* nome, SymbolType tipo, /*int linha,*/ Symbol* tabe
 }
 
 void adicionar_symbol_classe(char* nome, char* pai){
-    if(pai == NULL && strcmp(nome, "Object") < 0){
+    if(pai == NULL && strcmp(nome, "Object") != 0){
         pai = "Object";
     }
     tabela_classes = inserir_simbolo(nome, SYM_CLASSE, tabela_classes, NULL);
@@ -140,9 +141,11 @@ void push_scope() {
 // Sair do escopo atual
 void pop_scope() {
     if (escopo_atual != NULL) {
-        Scope* anterior = escopo_atual->anterior;
+        Scope* atual = escopo_atual;
+        escopo_atual = escopo_atual->anterior;
+        free_tabela(atual->tabela_variaveis);
+        free(atual);
         // liberar memória das variáveis se quiser
-        escopo_atual = anterior;
     }
 }
 
