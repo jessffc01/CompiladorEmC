@@ -5,7 +5,6 @@
 Symbol* tabela_classes;
 Symbol* tabela_atributos;
 Symbol* tabela_metodos;
-//Symbol* tabela_variaveis;
 Scope* escopo_atual;
 
 /* =========================================================================
@@ -78,7 +77,7 @@ Symbol* inserir_simbolo(char* nome, SymbolType tipo, /*int linha,*/ Symbol* tabe
     // 2. Preenche a ficha da variável
     novo_simbolo->nome = strdup(nome);
     novo_simbolo->tipo_simbolo = tipo;
-    //novo_simbolo->linha_declaracao = linha;
+    
     if(tipo != SYM_FORMAL){
     // 3. Insere no INÍCIO da lista (é mais rápido e fácil em C)
         novo_simbolo->next = tabela_simbolos;

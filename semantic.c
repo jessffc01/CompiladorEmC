@@ -90,10 +90,6 @@ int searchItem(char* nome, Symbol* tabela_simbolos, NodeType tipo_node, char* cl
         int sameClass;
         switch(item->tipo_simbolo){
             case SYM_CLASSE:
-                /*if(item->info.smb_classe.confirmado == 0){
-                    item->info.smb_classe.confirmado = 1;
-                    return 0;
-                }*/
                 sm_errors += 1;
                 return 1;
                 break;
@@ -103,10 +99,6 @@ int searchItem(char* nome, Symbol* tabela_simbolos, NodeType tipo_node, char* cl
                 if(sameClass != 0){
                     return 0;
                 }
-                /*else if(sameClass == 0 && item->info.smb_atributo.confirmado == 0){
-                    item->info.smb_atributo.confirmado = 1;
-                    return 0;
-                }*/
                 
                 sm_errors += 1;
                 return 1;
@@ -117,27 +109,6 @@ int searchItem(char* nome, Symbol* tabela_simbolos, NodeType tipo_node, char* cl
                 if(sameClass != 0){
                     return 0;
                 }
-                /*else if(item->info.smb_metodo.confirmado == 0 || tipo_node == NODE_DISPATCH_IMPLICITO || tipo_node == NODE_DISPATCH_EXPLICITO){
-                    Symbol* parametros_it = item->info.smb_metodo.parametros;
-                    while(parametros_it != NULL){
-                        if(strcmp(parametros_it->info.smb_formal.tipo, args->dados.formal.tipo_parametro) != 0){
-                            sm_errors += 1;
-                            return 1;    
-                        }
-
-                        parametros_it = parametros_it->next;
-                        args = args->proximo;
-                        if((parametros_it == NULL && args != NULL) || (parametros_it == NULL && args != NULL)){
-                            sm_errors += 1;
-                            return 1;
-                        }
-                    }
-                    if(item->info.smb_metodo.confirmado == 0){
-                        item->info.smb_metodo.tipo_retorno = tipo_retorno;
-                        item->info.smb_metodo.confirmado = 1;
-                    }
-                    return 0;
-                }*/
                 
                 sm_errors += 1;
                 return 1;
@@ -184,7 +155,6 @@ int verifyParent(char* pai, int linha_pai, int col_pai){
         ANALISADOR SEMÂNTICO
 ========================================== */
 int checkProgram(ASTNode* node){
-    //printf("\nChecando classes...\n");
     init_symbols();
     ASTNode* atual = node;
 
@@ -203,8 +173,6 @@ int checkProgram(ASTNode* node){
         atual = atual->proximo;
     }
 
-    //imprimir_tabela(tabela_classes);
-    //printf("\n-----Vamos checar as features de cada classe:-----\n");
     atual = node;
     while(atual!= NULL){
     //Verificar as features da classe
@@ -252,7 +220,7 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
 
                 tipoFeature = atual->dados.metodo.tipo_retorno;
                 nomeMetodo = atual->dados.metodo.nome_metodo;
-                //printf("\nMetodo %s\n", nomeMetodo);
+
                 nomeOcupado = searchItem(nomeMetodo, tabela_metodos, atual->tipo, classeOrigem, NULL, atual->dados.metodo.tipo_retorno);
                 if(nomeOcupado == 1){
                     printf("Erro semantico: Metodo '%s' ja existe neste escopo. Linha: %d, Col: %d\n", nomeMetodo, atual->linha, atual->coluna); 
@@ -276,10 +244,7 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
         atual = atual->proximo;
     }
 
-    //imprimir_tabela(tabela_metodos);
     //Verificando inicializações de atributos / corpo de métodos
-    //imprimir_tabela(tabela_atributos);
-    //printf("\nVerificando expressões das features...\n");
     atual = node;
     while(atual!= NULL){
         switch(atual->tipo){
@@ -288,7 +253,7 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                 init = atual->dados.atributo.inicializacao;
                 tipoFeature = atual->dados.atributo.tipo_atributo;
                 if(init != NULL){
-                    //printf("\nChecagem do atributo %s\n", nome);
+        
                     char* tipo_init = checkExpr(init, classeOrigem);
                     if(atual->dados.atributo.tipo_valido != 0){
                         if(isSubtype(tipo_init, tipoFeature) == 0 && isSubtype(tipoFeature, tipo_init) == 0){
@@ -306,9 +271,8 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                 if(strcmp(tipoFeature, "SELF_TYPE") == 0 || strcmp(tipoFeature, "self") == 0){
                     tipoFeature = classeOrigem;
                 }
-                //printf("\n Checagem do metodo %s\n", nomeMetodo);
+                
                 if(corpo != NULL){
-                    //printf("\nCheck method %s\n", nomeMetodo);
                     char* tipo_corpo = checkExpr(corpo, classeOrigem);
                     if(atual->dados.metodo.tipo_valido != 0){
                         if(isSubtype(tipo_corpo, tipoFeature) == 0 && isSubtype(tipoFeature, tipo_corpo) == 0){
@@ -324,7 +288,6 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
 }
 
 char* checkExpr(ASTNode* node, char* classeOrigem) {
-    //printf("\nVerificando nova expressão...\n");
     int linha_tipo, col_tipo, linha_expr, col_expr;
     /* ---------- ATRIBUIÇÃO ---------- */
     if(node->tipo == NODE_ATRIBUICAO){
@@ -558,8 +521,6 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
    /* ---------- DISPATCH IMPLÍCITO ---------- */
     else if (node->tipo == NODE_DISPATCH_IMPLICITO)
     {
-        //printf("\nDispatch implicito.\n");
-        //const char *exprType = checkExpr(node->dados.dispatch.expressao_base, classeOrigem);
 
         Symbol *metodo = buscar_simbolo(node->dados.dispatch.nome_metodo, tabela_metodos);
         if (metodo == NULL)
@@ -590,7 +551,6 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
     /* ---------- DISPATCH EXPLÍCITO ---------- */
     else if (node->tipo == NODE_DISPATCH_EXPLICITO)
     {
-        //printf("\nDispatch explicito.\n");
         char *exprType = checkExpr(node->dados.dispatch.expressao_base, classeOrigem);
         char *targetType = node->dados.dispatch.tipo_estatico;
 
@@ -689,8 +649,7 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
 
     /* ---------- IDENTIFICADOR ---------- */
 
-    else if(node->tipo == NODE_IDENTIFICADOR) {
-        //printf("\nBuscando identificador!\n");       
+    else if(node->tipo == NODE_IDENTIFICADOR) {       
         // CORREÇÃO: Usando a nomenclatura exata da union no ast.h
         char* nome = node->dados.valor_lexico; 
 
