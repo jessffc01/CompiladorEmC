@@ -28,21 +28,21 @@ void init_symbols(){
     adicionar_symbol_metodo("type_name", "String", "Object", NULL);
     adicionar_symbol_metodo("copy", "SELF_TYPE", "Object", NULL);
     
-    ASTNode* outstring_param = criar_no_formal("x", "String");
+    ASTNode* outstring_param = criar_no_formal("x", "String", -1, -1);
     adicionar_symbol_metodo("out_string", "SELF_TYPE", "IO", outstring_param);
     
-    ASTNode* outint_param = criar_no_formal("x", "Int");
+    ASTNode* outint_param = criar_no_formal("x", "Int", -1, -1);
     adicionar_symbol_metodo("out_int", "SELF_TYPE", "IO", outint_param);
     
     adicionar_symbol_metodo("in_string", "String", "IO", NULL);
     adicionar_symbol_metodo("in_int", "Int", "IO", NULL);
     adicionar_symbol_metodo("length", "Int", "String", NULL);
     
-    ASTNode* concat_param = criar_no_formal("s", "String");
+    ASTNode* concat_param = criar_no_formal("s", "String", -1, -1);
     adicionar_symbol_metodo("concat", "String", "String", concat_param);
 
-    ASTNode* substr_param = criar_no_formal("i", "Int");
-    substr_param->proximo = criar_no_formal("l", "Int");
+    ASTNode* substr_param = criar_no_formal("i", "Int", -1, -1);
+    substr_param->proximo = criar_no_formal("l", "Int", -1, -1);
     adicionar_symbol_metodo("substr", "String", "String", substr_param);
 }
 

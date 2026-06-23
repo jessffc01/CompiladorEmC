@@ -121,6 +121,11 @@ ASTNode* class() {
     
     //clona o nome da classe antes de avançar
     char* nome_classe = strdup(currentToken.lexema);
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
+
+    int linha_pai = -1;
+    int coluna_pai = -1;
     match(IDENTIFICADOR);
 
     //preparando o pai padrão ("Object")
@@ -132,6 +137,8 @@ ASTNode* class() {
         //se herdar de alguém, descartamos "Object"
         free(nome_pai);
         nome_pai = strdup(currentToken.lexema);
+        linha_pai = currentToken.location.linha;
+        coluna_pai = currentToken.location.coluna;
         match(IDENTIFICADOR);
     }
     match(LBRACE);
@@ -148,25 +155,30 @@ ASTNode* class() {
     match(RBRACE);
     match(SEMICOLON);
 
-    return criar_no_classe(nome_classe, nome_pai, lista_features);
+    return criar_no_classe(nome_classe, nome_pai, lista_features, linha, coluna, linha_pai, coluna_pai);
 }
 
 // ================= FORMAL =================
 ASTNode* formal() {
     //salva o nome da variável antes de avançar
     char* nome_parametro = strdup(currentToken.lexema);
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
     match(IDENTIFICADOR);
     match(COLON);
     //salva o tipo
     char* tipo_parametro = strdup(currentToken.lexema);
     match(IDENTIFICADOR);
-    return criar_no_formal(nome_parametro, tipo_parametro);
+    return criar_no_formal(nome_parametro, tipo_parametro, linha, coluna);
 }
 
 // ================= FEATURE =================
 
 ASTNode* feature(){
     char* nome_feature = strdup(currentToken.lexema);
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
+    int linha_tipo, coluna_tipo;
     match(IDENTIFICADOR);
 
     if(currentToken.tipo == LPAREN){
@@ -191,6 +203,8 @@ ASTNode* feature(){
 
         //Salvo o tipo de retorno do método int, string;
         char* tipo_retorno = strdup(currentToken.lexema);
+        linha_tipo = currentToken.location.linha;
+        coluna_tipo = currentToken.location.coluna;
         match(IDENTIFICADOR);
 
         match(LBRACE);
@@ -199,12 +213,14 @@ ASTNode* feature(){
         match(RBRACE);
         match(SEMICOLON);
 
-        return criar_no_metodo(nome_feature, tipo_retorno, lista_formals, corpo_metodo);
+        return criar_no_metodo(nome_feature, tipo_retorno, lista_formals, corpo_metodo, linha, coluna, linha_tipo, coluna_tipo);
     }else{
         //atributo;
 
         match(COLON);
         char* tipo_atributo = strdup(currentToken.lexema);
+        linha_tipo = currentToken.location.linha;
+        coluna_tipo = currentToken.location.coluna;
         match(IDENTIFICADOR);
 
         ASTNode* inicializacao = NULL;
@@ -216,12 +232,14 @@ ASTNode* feature(){
         }
         match(SEMICOLON);
 
-        return criar_no_atributo(nome_feature, tipo_atributo, inicializacao);
+        return criar_no_atributo(nome_feature, tipo_atributo, inicializacao, linha, coluna, linha_tipo, coluna_tipo);
     }
 }
 
 // ================= EXPRESSÕES =================
 ASTNode* expr(){
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
     //IF
     if(currentToken.tipo == IF){
         match(IF);
@@ -232,7 +250,7 @@ ASTNode* expr(){
         ASTNode* bloco_else = expr();
         match(FI);
 
-        return criar_no_if(condicao, bloco_then, bloco_else);
+        return criar_no_if(condicao, bloco_then, bloco_else, linha, coluna);
     }
     //WHILE
     else if(currentToken.tipo == WHILE){
@@ -242,7 +260,7 @@ ASTNode* expr(){
         ASTNode* corpo = expr(); //pega a repetição;
         match(POOL);
 
-        return criar_no_while(condicao, corpo);
+        return criar_no_while(condicao, corpo, linha, coluna);
     }
 
     else if(currentToken.tipo == LET){
@@ -253,9 +271,13 @@ ASTNode* expr(){
         
         //primeira variável
         char* nome = strdup(currentToken.lexema);
+        int linha_var = currentToken.location.linha;
+        int coluna_var = currentToken.location.coluna;
         match(IDENTIFICADOR);
         match(COLON);
         char* tipo = strdup(currentToken.lexema);
+        int linha_tipo = currentToken.location.linha;
+        int coluna_tipo = currentToken.location.coluna;
         match(IDENTIFICADOR);
 
         ASTNode* init = NULL;
@@ -265,15 +287,19 @@ ASTNode* expr(){
         }
 
         //primeira variável na lista;
-        lista_variaveis = adicionar_comando(lista_variaveis, criar_no_let_var(nome, tipo, init));
+        lista_variaveis = adicionar_comando(lista_variaveis, criar_no_let_var(nome, tipo, init, linha_var, coluna_var, linha_tipo, coluna_tipo));
 
         //proximas variáveis;
         while(currentToken.tipo == COMMA){
             match(COMMA);   
             char* prox_nome = strdup(currentToken.lexema);
+            linha_var = currentToken.location.linha;
+            coluna_var = currentToken.location.coluna;
             match(IDENTIFICADOR);
             match(COLON);
             char* prox_tipo = strdup(currentToken.lexema);
+            linha_tipo = currentToken.location.linha;
+            coluna_tipo = currentToken.location.coluna;
             match(IDENTIFICADOR);
 
             ASTNode* prox_init = NULL;
@@ -281,11 +307,12 @@ ASTNode* expr(){
                 match(ATRIBUI);
                 prox_init = expr();
             }
-            
+
+            lista_variaveis = adicionar_comando(lista_variaveis, criar_no_let_var(prox_nome, prox_tipo, prox_init, linha_var, coluna_var, linha_tipo, coluna_tipo));
         }
         match(IN);
         ASTNode* corpo_let = expr();//codigo que vai usar as variaveis;
-        return criar_no_let(lista_variaveis, corpo_let);
+        return criar_no_let(lista_variaveis, corpo_let, linha, coluna);
     }
     //CASE
     else if(currentToken.tipo == CASE){
@@ -295,22 +322,27 @@ ASTNode* expr(){
 
         ASTNode* lista_cases = NULL;
 
+        int linha_branch, coluna_branch, linha_tipo, coluna_tipo;
         do{
             char* nome_case = strdup(currentToken.lexema);
+            linha_branch = currentToken.location.linha;
+            coluna_branch = currentToken.location.coluna;
             match(IDENTIFICADOR);
             match(COLON);
             char* tipo_case = strdup(currentToken.lexema);
+            linha_tipo = currentToken.location.linha;
+            coluna_tipo = currentToken.location.coluna;
             match(IDENTIFICADOR);
             match(AVALIA);// setinha =>
             ASTNode* corpo_case = expr();
             match(SEMICOLON);
 
-            lista_cases = adicionar_comando(lista_cases, criar_no_case_branch(nome_case,tipo_case, corpo_case));
+            lista_cases = adicionar_comando(lista_cases, criar_no_case_branch(nome_case,tipo_case, corpo_case, linha_branch, coluna_branch, linha_tipo, coluna_tipo));
         }while(currentToken.tipo == IDENTIFICADOR);
 
         match(ESAC);
 
-        return criar_no_case(expressao_principal, lista_cases);
+        return criar_no_case(expressao_principal, lista_cases, linha, coluna);
     }
     //BLOCO
     else if(currentToken.tipo == LBRACE){
@@ -321,14 +353,14 @@ ASTNode* expr(){
             match(SEMICOLON);
         }while(currentToken.tipo != RBRACE && currentToken.tipo != EOF_TOKEN);
         match(RBRACE);
-        return criar_no_bloco(lista_bloco);
+        return criar_no_bloco(lista_bloco, linha, coluna);
     }
     //new
     else if(currentToken.tipo == NEW){
         match(NEW);
         char* tipo_novo = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
-        return criar_no_new(tipo_novo);
+        return criar_no_new(tipo_novo, linha, coluna);
     }
 
     // ================= DEFAULT =================
@@ -341,10 +373,12 @@ ASTNode* expr(){
 ASTNode* expr_atrib(){
     if (currentToken.tipo == IDENTIFICADOR && look().tipo == ATRIBUI) {
         char* nome_var = strdup(currentToken.lexema);
+        int linha = currentToken.location.linha;
+        int coluna = currentToken.location.coluna;
         match(IDENTIFICADOR);
         match(ATRIBUI);
         ASTNode* valor_direito = expr_atrib();
-        return criar_no_atribuicao(nome_var, valor_direito);
+        return criar_no_atribuicao(nome_var, valor_direito, linha, coluna);
     }
     return expr_not();
 }
@@ -353,7 +387,8 @@ ASTNode* expr_atrib(){
 ASTNode* expr_not(){
     
     int quantidade_not=0;
-    
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
     while(currentToken.tipo == NOT){
         match(NOT);
         quantidade_not++;
@@ -361,7 +396,7 @@ ASTNode* expr_not(){
     ASTNode* expressao = expr_rel();
 
     for(int i=0; i<quantidade_not; i++){
-        expressao = criar_no_not(expressao);
+        expressao = criar_no_not(expressao, linha, coluna);
     }
 
     return expressao;
@@ -378,12 +413,13 @@ ASTNode* expr_rel() {
         currentToken.tipo == MAIOR ||
         currentToken.tipo == MAIOROUIGUAL ||
         currentToken.tipo == IGUAL) {
-
+        int linha = currentToken.location.linha;
+        int coluna = currentToken.location.coluna;
         TokenTipo operador = currentToken.tipo;
         advance();
 
         ASTNode* no_direito = expr_arit();
-        no_esquerdo = criar_no_relacional(operador,no_esquerdo, no_direito);
+        no_esquerdo = criar_no_relacional(operador,no_esquerdo, no_direito, linha, coluna);
     }
 
     return no_esquerdo;
@@ -395,12 +431,13 @@ ASTNode* expr_arit() {
 
     while (currentToken.tipo == MAIS ||
         currentToken.tipo == MENOS) {
-
+        int linha = currentToken.location.linha;
+        int coluna = currentToken.location.coluna;
         TokenTipo operador = currentToken.tipo;
         advance();
 
         ASTNode* no_direito = term();
-        no_esquerdo = criar_no_aritmetico(operador, no_esquerdo, no_direito);
+        no_esquerdo = criar_no_aritmetico(operador, no_esquerdo, no_direito, linha, coluna);
     }
 
     return no_esquerdo;
@@ -411,28 +448,31 @@ ASTNode* term() {
 
     while (currentToken.tipo == MULTIPLICACAO ||
         currentToken.tipo == DIVISAO) {
-
+        int linha = currentToken.location.linha;
+        int coluna = currentToken.location.coluna;
         TokenTipo operador = currentToken.tipo;
         advance();
 
         ASTNode* no_direito = factor();
-        no_esquerdo = criar_no_aritmetico(operador, no_esquerdo, no_direito);
+        no_esquerdo = criar_no_aritmetico(operador, no_esquerdo, no_direito, linha, coluna);
     }
     return no_esquerdo;
 }
 
 //FATOR
 ASTNode* factor() {
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
     if(currentToken.tipo == ISVOID) {
         match(ISVOID);
         ASTNode* expressao = factor();
-        return criar_no_isvoid(expressao);
+        return criar_no_isvoid(expressao, linha, coluna);
     }
     else if(currentToken.tipo == COMPLEMENTO){
         match(COMPLEMENTO);
         ASTNode* expressao = factor();
 
-        return criar_no_complemento(expressao);
+        return criar_no_complemento(expressao, linha, coluna);
     }
     else{
         return dispatch();
@@ -441,32 +481,39 @@ ASTNode* factor() {
 
 
 ASTNode* dispatch(){
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
     ASTNode* expressao_base = primary();
 
     if (currentToken.tipo == LPAREN) {
         match(LPAREN);
         ASTNode* argumentos = args();
         match(RPAREN);
-        expressao_base = criar_no_dispatch_implicito(expressao_base, argumentos);
+        expressao_base = criar_no_dispatch_implicito(expressao_base, argumentos, linha, coluna);
     }
 
     while(currentToken.tipo == DOT || currentToken.tipo == ARROBA) {
-        
+        int linha_at = -1;
+        int col_at = -1;
         char* tipo_estatico = NULL; // se houver, irá guardar
         if (currentToken.tipo == ARROBA) {
             match(ARROBA);
             tipo_estatico = strdup(currentToken.lexema);
+            linha_at = currentToken.location.linha;
+            col_at = currentToken.location.coluna;
             match(IDENTIFICADOR);
         }
         
         match(DOT);// lê o ponto
         char* nome_metodo = strdup(currentToken.lexema);
+        int linha_met = currentToken.location.linha;
+        int col_met = currentToken.location.coluna;
         match(IDENTIFICADOR);
         match(LPAREN);
         ASTNode* argumentos = args();
         match(RPAREN);
 
-        expressao_base = criar_no_dispatch_explicito(expressao_base, tipo_estatico,nome_metodo, argumentos);
+        expressao_base = criar_no_dispatch_explicito(expressao_base, tipo_estatico,nome_metodo, argumentos, linha, coluna, linha_at, col_at, linha_met, col_met);
     }
 
     return expressao_base;
@@ -474,19 +521,21 @@ ASTNode* dispatch(){
 
 // ================= PRIMÁRIO (Os Átomos da Linguagem) =================
 ASTNode* primary() {
-    
+    int linha = currentToken.location.linha;
+    int coluna = currentToken.location.coluna;
+
     // 1. NÚMEROS (Ex: 42)
     if (currentToken.tipo == NUMERO) {
         char* valor = strdup(currentToken.lexema);
         match(NUMERO);
-        return criar_no_inteiro(valor);
+        return criar_no_inteiro(valor, linha, coluna);
     }
     
     // 2. VARIÁVEIS / IDENTIFICADORES (Ex: hp, velocidade)
     else if (currentToken.tipo == IDENTIFICADOR) {
         char* nome = strdup(currentToken.lexema);
         match(IDENTIFICADOR);
-        return criar_no_identificador(nome);
+        return criar_no_identificador(nome, linha, coluna);
     }
     
     // 3. A MÁGICA DOS PARÊNTESES (Ex: (2 + 3) )
@@ -504,17 +553,17 @@ ASTNode* primary() {
     else if (currentToken.tipo == STRING) {
         char* texto = strdup(currentToken.lexema);
         match(STRING);
-        return criar_no_string(texto);
+        return criar_no_string(texto, linha, coluna);
     }
     
     // 5. BOOLEANOS (Verdadeiro ou Falso)
     else if (currentToken.tipo == TRUE) {
         match(TRUE);
-        return criar_no_booleano(1); // 1 representa true em C
+        return criar_no_booleano(1, linha, coluna); // 1 representa true em C
     }
     else if (currentToken.tipo == FALSE) {
         match(FALSE);
-        return criar_no_booleano(0); // 0 representa false em C
+        return criar_no_booleano(0, linha, coluna); // 0 representa false em C
     }
     
     // 6. A REDE DE SEGURANÇA (Tratamento de Erros)
