@@ -3,7 +3,7 @@
 // =========================================================================
 // FUNÇÃO AJUDANTE (Uso interno da fábrica)
 // =========================================================================
-ASTNode* criar_no_base(NodeType tipo) {
+ASTNode* criar_no_base(NodeType tipo, int linha, int coluna) {
     // 1. Pede espaço na memória RAM do tamanho exato da nossa Union
     ASTNode* novo_no = (ASTNode*)malloc(sizeof(ASTNode));
     
@@ -14,6 +14,8 @@ ASTNode* criar_no_base(NodeType tipo) {
     }
     
     // 3. Preenche as informações que todo nó tem em comum
+    novo_no->linha = linha;
+    novo_no->coluna = coluna;
     novo_no->tipo = tipo;
     novo_no->proximo = NULL; // O vagão começa desengatado por padrão
     
@@ -24,32 +26,36 @@ ASTNode* criar_no_base(NodeType tipo) {
 // ESTRUTURAS DE LET E CASE
 // =========================================================================
 
-ASTNode* criar_no_let(ASTNode* lista_variaveis, ASTNode* corpo) {
-    ASTNode* no = criar_no_base(NODE_LET);
+ASTNode* criar_no_let(ASTNode* lista_variaveis, ASTNode* corpo, int linha, int coluna) {
+    ASTNode* no = criar_no_base(NODE_LET, linha, coluna);
     no->dados.no_let.lista_variaveis = lista_variaveis;
     no->dados.no_let.corpo = corpo;
     return no;
 }
 
-ASTNode* criar_no_let_var(char* nome, char* tipo, ASTNode* init) {
-    ASTNode* no = criar_no_base(NODE_LET_VAR);
+ASTNode* criar_no_let_var(char* nome, char* tipo, ASTNode* init, int linha, int coluna, int linha_tipo, int coluna_tipo) {
+    ASTNode* no = criar_no_base(NODE_LET_VAR, linha, coluna);
     no->dados.let_var.nome_variavel = nome;
     no->dados.let_var.tipo_variavel = tipo;
+    no->dados.let_var.linha_tipo = linha_tipo;
+    no->dados.let_var.coluna_tipo = coluna_tipo;
     no->dados.let_var.inicializacao = init; // Pode ser NULL se não tiver "<-"
     return no;
 }
 
-ASTNode* criar_no_case(ASTNode* expressao_principal, ASTNode* lista_cases) {
-    ASTNode* no = criar_no_base(NODE_CASE);
+ASTNode* criar_no_case(ASTNode* expressao_principal, ASTNode* lista_cases, int linha, int coluna) {
+    ASTNode* no = criar_no_base(NODE_CASE, linha, coluna);
     no->dados.no_case.expressao_principal = expressao_principal;
     no->dados.no_case.lista_cases = lista_cases;
     return no;
 }
 
-ASTNode* criar_no_case_branch(char* nome, char* tipo, ASTNode* corpo) {
-    ASTNode* no = criar_no_base(NODE_CASE_BRANCH);
+ASTNode* criar_no_case_branch(char* nome, char* tipo, ASTNode* corpo, int linha, int coluna, int linha_tipo, int coluna_tipo) {
+    ASTNode* no = criar_no_base(NODE_CASE_BRANCH, linha, coluna);
     no->dados.case_branch.nome_variavel = nome;
     no->dados.case_branch.tipo_variavel = tipo;
+    no->dados.case_branch.linha_tipo = linha_tipo;
+    no->dados.case_branch.coluna_tipo = coluna_tipo;
     no->dados.case_branch.corpo = corpo;
     return no;
 }
@@ -58,42 +64,50 @@ ASTNode* criar_no_case_branch(char* nome, char* tipo, ASTNode* corpo) {
 // ESTRUTURAS DE ORIENTAÇÃO A OBJETOS (Classes, Métodos, Atributos)
 // =========================================================================
 
-ASTNode* criar_no_classe(char* nome_classe, char* nome_pai, ASTNode* lista_features) {
-    ASTNode* no = criar_no_base(NODE_CLASSE);
+ASTNode* criar_no_classe(char* nome_classe, char* nome_pai, ASTNode* lista_features, int linha, int coluna, int linha_pai, int coluna_pai) {
+    ASTNode* no = criar_no_base(NODE_CLASSE, linha, coluna);
+    no->dados.classe.linha_pai = linha_pai;
+    no->dados.classe.coluna_pai = coluna_pai;
     no->dados.classe.nome_classe = nome_classe;
     no->dados.classe.nome_pai = nome_pai;
     no->dados.classe.lista_features = lista_features;
     return no;
 }
 
-ASTNode* criar_no_formal(char* nome_parametro, char* tipo_parametro) {
-    ASTNode* no = criar_no_base(NODE_FORMAL);
+ASTNode* criar_no_formal(char* nome_parametro, char* tipo_parametro, int linha, int coluna) {
+    ASTNode* no = criar_no_base(NODE_FORMAL, linha, coluna);
     no->dados.formal.nome_parametro = nome_parametro;
     no->dados.formal.tipo_parametro = tipo_parametro;
     return no;
 }
 
-ASTNode* criar_no_metodo(char* nome_metodo, char* tipo_retorno, ASTNode* lista_formais, ASTNode* corpo) {
-    ASTNode* no = criar_no_base(NODE_METODO);
+ASTNode* criar_no_metodo(char* nome_metodo, char* tipo_retorno, ASTNode* lista_formais, ASTNode* corpo, int linha, int coluna, int linha_tipo, int coluna_tipo) {
+    ASTNode* no = criar_no_base(NODE_METODO, linha, coluna);
     no->dados.metodo.nome_metodo = nome_metodo;
     no->dados.metodo.tipo_retorno = tipo_retorno;
+    no->dados.metodo.linha_tipo = linha_tipo;
+    no->dados.metodo.coluna_tipo = coluna_tipo;
     no->dados.metodo.lista_formais = lista_formais;
     no->dados.metodo.corpo = corpo;
+    no->dados.metodo.tipo_valido = 1;
     return no;
 }
 
-ASTNode* criar_no_atributo(char* nome_atributo, char* tipo_atributo, ASTNode* inicializacao) {
-    ASTNode* no = criar_no_base(NODE_ATRIBUTO);
+ASTNode* criar_no_atributo(char* nome_atributo, char* tipo_atributo, ASTNode* inicializacao, int linha, int coluna, int linha_tipo, int coluna_tipo) {
+    ASTNode* no = criar_no_base(NODE_ATRIBUTO, linha, coluna);
     no->dados.atributo.nome_atributo = nome_atributo;
     no->dados.atributo.tipo_atributo = tipo_atributo;
+    no->dados.atributo.linha_tipo = linha_tipo;
+    no->dados.atributo.coluna_tipo = coluna_tipo;
     no->dados.atributo.inicializacao = inicializacao;
+    no->dados.atributo.tipo_valido = 1;
     return no;
 }
 
 
-ASTNode* criar_no_inteiro(char* valor) {
+ASTNode* criar_no_inteiro(char* valor, int linha, int coluna) {
     // 1. Chama o nosso "ajudante" para alocar a memória e definir o tipo
-    ASTNode* no = criar_no_base(NODE_INTEIRO);
+    ASTNode* no = criar_no_base(NODE_INTEIRO, linha, coluna);
     
     // 2. Guarda o texto do número dentro do espaço correto da nossa union
     no->dados.valor_lexico = valor;
@@ -102,9 +116,9 @@ ASTNode* criar_no_inteiro(char* valor) {
     return no;
 }
 
-ASTNode* criar_no_string(char* valor) {
+ASTNode* criar_no_string(char* valor, int linha, int coluna) {
     // 1. Aloca a memória e define o tipo como STRING
-    ASTNode* no = criar_no_base(NODE_STRING);
+    ASTNode* no = criar_no_base(NODE_STRING, linha, coluna);
     
     // 2. Guarda o texto da string (que já vem com aspas do seu lexer)
     no->dados.valor_lexico = valor;
@@ -113,9 +127,9 @@ ASTNode* criar_no_string(char* valor) {
     return no;
 }
 
-ASTNode* criar_no_booleano(int valor) {
+ASTNode* criar_no_booleano(int valor, int linha, int coluna) {
     // 1. Aloca a memória e define o tipo como BOOLEANO
-    ASTNode* no = criar_no_base(NODE_BOOLEANO);
+    ASTNode* no = criar_no_base(NODE_BOOLEANO, linha, coluna);
     
     // 2. Guarda o valor numérico (1 ou 0) na gaveta correta da union
     no->dados.valor_booleano = valor;
@@ -124,9 +138,9 @@ ASTNode* criar_no_booleano(int valor) {
     return no;
 }
 
-ASTNode* criar_no_identificador(char* nome) {
+ASTNode* criar_no_identificador(char* nome, int linha, int coluna) {
     // 1. Aloca a memória e define o tipo como IDENTIFICADOR
-    ASTNode* no = criar_no_base(NODE_IDENTIFICADOR);
+    ASTNode* no = criar_no_base(NODE_IDENTIFICADOR, linha, coluna);
     
     // 2. Guarda o nome da variável na mesma gaveta de texto da union
     no->dados.valor_lexico = nome;
@@ -139,9 +153,9 @@ ASTNode* criar_no_identificador(char* nome) {
 // =========================================================================
 // MATEMÁTICA E LÓGICA (Operações)
 // =========================================================================
-ASTNode* criar_no_aritmetico(TokenTipo op, ASTNode* esq, ASTNode *dir){
+ASTNode* criar_no_aritmetico(TokenTipo op, ASTNode* esq, ASTNode *dir, int linha, int coluna){
     // 1. Aloca a memória e define o tipo como ARITMÉTICO
-    ASTNode* no = criar_no_base(NODE_ARITMETICO);
+    ASTNode* no = criar_no_base(NODE_ARITMETICO, linha, coluna);
     
     // 2. Preenche a gaveta "operacao_binaria" da nossa union
     no->dados.operacao_binaria.operador = op;   // Salva qual foi o sinal (+, -, *, /)
@@ -152,9 +166,9 @@ ASTNode* criar_no_aritmetico(TokenTipo op, ASTNode* esq, ASTNode *dir){
     return no;
 }
 
-ASTNode* criar_no_relacional(TokenTipo op, ASTNode* esq, ASTNode* dir) {
+ASTNode* criar_no_relacional(TokenTipo op, ASTNode* esq, ASTNode* dir, int linha, int coluna) {
     // 1. Aloca a memória e define o tipo como RELACIONAL
-    ASTNode* no = criar_no_base(NODE_RELACIONAL);
+    ASTNode* no = criar_no_base(NODE_RELACIONAL, linha, coluna);
     
     // 2. Preenche a mesma gaveta "operacao_binaria" usada na matemática
     no->dados.operacao_binaria.operador = op;   // Salva o sinal (<, <=, =, etc)
@@ -166,9 +180,9 @@ ASTNode* criar_no_relacional(TokenTipo op, ASTNode* esq, ASTNode* dir) {
 }
 
 
-ASTNode* criar_no_not(ASTNode* expr) {
+ASTNode* criar_no_not(ASTNode* expr, int linha, int coluna) {
     // 1. Aloca a memória e define o tipo como NOT
-    ASTNode* no = criar_no_base(NODE_NOT);
+    ASTNode* no = criar_no_base(NODE_NOT, linha, coluna);
     
     // 2. Preenche a gaveta "operacao_unaria" da nossa union
     no->dados.operacao_unaria.expressao = expr;  // Segura a caixinha que está sendo negada
@@ -177,9 +191,9 @@ ASTNode* criar_no_not(ASTNode* expr) {
     return no;
 }
 
-ASTNode* criar_no_new(char* tipo_novo) {
+ASTNode* criar_no_new(char* tipo_novo, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como NEW
-    ASTNode* no = criar_no_base(NODE_NEW);
+    ASTNode* no = criar_no_base(NODE_NEW, linha, coluna);
     
     // 2. Guarda o nome da classe usando a nossa gaveta de texto padrão
     no->dados.valor_lexico = tipo_novo; 
@@ -188,9 +202,9 @@ ASTNode* criar_no_new(char* tipo_novo) {
     return no;
 }
 
-ASTNode* criar_no_isvoid(ASTNode* expr) {
+ASTNode* criar_no_isvoid(ASTNode* expr, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como ISVOID
-    ASTNode* no = criar_no_base(NODE_ISVOID);
+    ASTNode* no = criar_no_base(NODE_ISVOID, linha, coluna);
     
     // 2. Preenche a mesma gaveta de operações de 1 lado só
     no->dados.operacao_unaria.expressao = expr;  // Segura a variável ou objeto que será testado
@@ -199,9 +213,9 @@ ASTNode* criar_no_isvoid(ASTNode* expr) {
     return no;
 }
 
-ASTNode* criar_no_complemento(ASTNode* expr) {
+ASTNode* criar_no_complemento(ASTNode* expr, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como COMPLEMENTO
-    ASTNode* no = criar_no_base(NODE_COMPLEMENTO);
+    ASTNode* no = criar_no_base(NODE_COMPLEMENTO, linha, coluna);
     
     // 2. Guarda a expressão que sofrerá a inversão na gaveta unária
     no->dados.operacao_unaria.expressao = expr;
@@ -215,9 +229,9 @@ ASTNode* criar_no_complemento(ASTNode* expr) {
 // ESTRUTURAS DE COMANDO (Controle de Fluxo e Atribuições)
 // =========================================================================
 
-ASTNode* criar_no_atribuicao(char* nome, ASTNode* valor) {
+ASTNode* criar_no_atribuicao(char* nome, ASTNode* valor, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como ATRIBUIÇÃO
-    ASTNode* no = criar_no_base(NODE_ATRIBUICAO);
+    ASTNode* no = criar_no_base(NODE_ATRIBUICAO, linha, coluna);
     
     // 2. Preenche a gaveta "atribuicao" da nossa union
     no->dados.atribuicao.nome_variavel = nome;  // Salva o texto com o nome da variável (ex: "hp")
@@ -229,9 +243,9 @@ ASTNode* criar_no_atribuicao(char* nome, ASTNode* valor) {
 
 
 
-ASTNode* criar_no_if(ASTNode* cond, ASTNode* bloco_then, ASTNode* bloco_else) {
+ASTNode* criar_no_if(ASTNode* cond, ASTNode* bloco_then, ASTNode* bloco_else, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como IF
-    ASTNode* no = criar_no_base(NODE_IF);
+    ASTNode* no = criar_no_base(NODE_IF, linha, coluna);
     
     // 2. Preenche a gaveta "no_if" da nossa union
     no->dados.no_if.condicao = cond;        // Segura a árvore de teste (ex: hp < 0)
@@ -242,9 +256,9 @@ ASTNode* criar_no_if(ASTNode* cond, ASTNode* bloco_then, ASTNode* bloco_else) {
     return no;
 }
 
-ASTNode* criar_no_while(ASTNode* cond, ASTNode* corpo) {
+ASTNode* criar_no_while(ASTNode* cond, ASTNode* corpo, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como WHILE
-    ASTNode* no = criar_no_base(NODE_WHILE);
+    ASTNode* no = criar_no_base(NODE_WHILE, linha, coluna);
     
     // 2. Preenche a gaveta "no_while" da nossa union
     no->dados.no_while.condicao = cond;  // Segura a árvore do teste de repetição (ex: hp > 0)
@@ -254,9 +268,9 @@ ASTNode* criar_no_while(ASTNode* cond, ASTNode* corpo) {
     return no;
 }
 
-ASTNode* criar_no_bloco(ASTNode* lista_comandos) {
+ASTNode* criar_no_bloco(ASTNode* lista_comandos, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como BLOCO
-    ASTNode* no = criar_no_base(NODE_BLOCO);
+    ASTNode* no = criar_no_base(NODE_BLOCO, linha, coluna);
     
     // 2. Preenche a gaveta "bloco" da nossa union
     no->dados.bloco.lista_comandos = lista_comandos; // Segura a "locomotiva" do trem de comandos
@@ -265,9 +279,9 @@ ASTNode* criar_no_bloco(ASTNode* lista_comandos) {
     return no;
 }
 
-ASTNode* criar_no_dispatch_implicito(ASTNode* nome_metodo, ASTNode* argumentos) {
+ASTNode* criar_no_dispatch_implicito(ASTNode* nome_metodo, ASTNode* argumentos, int linha, int coluna) {
     // 1. Aloca a memória e define o crachá como DISPATCH IMPLÍCITO
-    ASTNode* no = criar_no_base(NODE_DISPATCH_IMPLICITO);
+    ASTNode* no = criar_no_base(NODE_DISPATCH_IMPLICITO, linha, coluna);
     
     // 2. Preenche a gaveta "dispatch" da nossa union
     // Como é implícito, não tem um objeto explícito chamando, nem tipo estático (@).
@@ -288,16 +302,19 @@ ASTNode* criar_no_dispatch_implicito(ASTNode* nome_metodo, ASTNode* argumentos) 
     return no;
 }
 
-ASTNode* criar_no_dispatch_explicito(ASTNode* base, char* tipo_estatico, char* nome_metodo, ASTNode* args) {
+ASTNode* criar_no_dispatch_explicito(ASTNode* base, char* tipo_estatico, char* nome_metodo, ASTNode* args, int linha, int col, int linha_at, int col_at, int linha_met, int col_met) {
     // 1. Aloca a memória e define o crachá como DISPATCH EXPLÍCITO
-    ASTNode* no = criar_no_base(NODE_DISPATCH_EXPLICITO);
+    ASTNode* no = criar_no_base(NODE_DISPATCH_EXPLICITO, linha, col);
     
     // 2. Preenche a gaveta "dispatch" da nossa union
     no->dados.dispatch.expressao_base = base;   // A árvore de quem está chamando o método (ex: "jogador")
     no->dados.dispatch.tipo_estatico = tipo_estatico; // O texto do @Classe (ou NULL, se for um '.' normal)
     no->dados.dispatch.nome_metodo = nome_metodo;     // O nome da ação (ex: "atacar")
     no->dados.dispatch.argumentos = args;             // A "locomotiva" com a lista de argumentos
-    
+    no->dados.dispatch.linha_at = linha_at;
+    no->dados.dispatch.coluna_at = col_at;
+    no->dados.dispatch.linha_metodo = linha_met;
+    no->dados.dispatch.col_metodo = col_met;
     // 3. Devolve a estrutura de chamada completa
     return no;
 }

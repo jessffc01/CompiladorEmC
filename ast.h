@@ -47,7 +47,9 @@ typedef enum {
 typedef struct ASTNode {
     NodeType tipo;           // Diz o que essa caixa é (ex: NODE_IF)
     struct ASTNode* proximo; // Ponteiro mágico para listas (ex: o próximo argumento, a próxima linha do bloco)
-    
+    int linha;
+    int coluna;
+
     // A UNION: A caixinha se molda dependendo do tipo!
     // Se for um IF, ela usa a struct "no_if". Se for uma SOMA, usa a struct "operacao_binaria".
     union {
@@ -95,7 +97,11 @@ typedef struct ASTNode {
         struct {
             struct ASTNode* expressao_base; // Quem está chamando
             char* tipo_estatico;            // O @Classe (Pode ser NULL)
+            int linha_at;
+            int coluna_at;
             char* nome_metodo;              // Qual método está chamando
+            int linha_metodo;
+            int col_metodo;
             struct ASTNode* argumentos;     // Lista de argumentos passados
         } dispatch;
 
@@ -103,6 +109,8 @@ typedef struct ASTNode {
         struct {
             char* nome_classe;
             char* nome_pai;
+            int linha_pai;
+            int coluna_pai;
             struct ASTNode* lista_features;
         } classe;
 
@@ -116,6 +124,9 @@ typedef struct ASTNode {
         struct {
             char* nome_metodo;
             char* tipo_retorno;
+            int linha_tipo;
+            int coluna_tipo;
+            int tipo_valido;
             struct ASTNode* lista_formais;
             struct ASTNode* corpo;
         } metodo;
@@ -124,6 +135,9 @@ typedef struct ASTNode {
         struct {
             char* nome_atributo;
             char* tipo_atributo;
+            int linha_tipo;
+            int coluna_tipo;
+            int tipo_valido;
             struct ASTNode* inicializacao;
         } atributo;
         // Para o bloco LET
@@ -136,6 +150,8 @@ typedef struct ASTNode {
         struct {
             char* nome_variavel;
             char* tipo_variavel;
+            int linha_tipo;
+            int coluna_tipo;
             struct ASTNode* inicializacao;
         } let_var;
 
@@ -149,6 +165,8 @@ typedef struct ASTNode {
         struct {
             char* nome_variavel;
             char* tipo_variavel;
+            int linha_tipo;
+            int coluna_tipo;
             struct ASTNode* corpo;
         } case_branch;
 
@@ -157,44 +175,44 @@ typedef struct ASTNode {
 } ASTNode;
 
 // Estruturas de LET e CASE
-ASTNode* criar_no_let(ASTNode* lista_variaveis, ASTNode* corpo);
-ASTNode* criar_no_let_var(char* nome, char* tipo, ASTNode* init);
-ASTNode* criar_no_case(ASTNode* expressao_principal, ASTNode* lista_cases);
-ASTNode* criar_no_case_branch(char* nome, char* tipo, ASTNode* corpo);
+ASTNode* criar_no_let(ASTNode* lista_variaveis, ASTNode* corpo, int linha, int coluna);
+ASTNode* criar_no_let_var(char* nome, char* tipo, ASTNode* init, int linha, int coluna, int linha_tipo, int coluna_tipo);
+ASTNode* criar_no_case(ASTNode* expressao_principal, ASTNode* lista_cases, int linha, int coluna);
+ASTNode* criar_no_case_branch(char* nome, char* tipo, ASTNode* corpo, int linha, int coluna, int linha_tipo, int coluna_tipo);
 
 // Estruturas de Orientação a Objetos
-ASTNode* criar_no_classe(char* nome_classe, char* nome_pai, ASTNode* lista_features);
-ASTNode* criar_no_formal(char* nome_parametro, char* tipo_parametro);
-ASTNode* criar_no_metodo(char* nome_metodo, char* tipo_retorno, ASTNode* lista_formais, ASTNode* corpo);
-ASTNode* criar_no_atributo(char* nome_atributo, char* tipo_atributo, ASTNode* inicializacao);
+ASTNode* criar_no_classe(char* nome_classe, char* nome_pai, ASTNode* lista_features, int linha, int coluna, int linha_pai, int coluna_pai);
+ASTNode* criar_no_formal(char* nome_parametro, char* tipo_parametro, int linha, int coluna);
+ASTNode* criar_no_metodo(char* nome_metodo, char* tipo_retorno, ASTNode* lista_formais, ASTNode* corpo, int linha, int coluna, int linha_tipo, int coluna_tipo);
+ASTNode* criar_no_atributo(char* nome_atributo, char* tipo_atributo, ASTNode* inicializacao, int linha, int coluna, int linha_tipo, int coluna_tipo);
 
 // =========================================================================
 // 3. AS FÁBRICAS DE NÓS (Protótipos das funções que usaremos no ast.c)
 // =========================================================================
 
 // Folhas
-ASTNode* criar_no_inteiro(char* valor);
-ASTNode* criar_no_string(char* valor);
-ASTNode* criar_no_booleano(int valor);
-ASTNode* criar_no_identificador(char* nome);
+ASTNode* criar_no_inteiro(char* valor, int linha, int coluna);
+ASTNode* criar_no_string(char* valor, int linha, int coluna);
+ASTNode* criar_no_booleano(int valor, int linha, int coluna);
+ASTNode* criar_no_identificador(char* nome, int linha, int coluna);
 
 // Matemática e Lógica
-ASTNode* criar_no_aritmetico(TokenTipo op, ASTNode* esq, ASTNode* dir);
-ASTNode* criar_no_relacional(TokenTipo op, ASTNode* esq, ASTNode* dir);
-ASTNode* criar_no_not(ASTNode* expr);
-ASTNode* criar_no_new(char* tipo_novo);
-ASTNode* criar_no_isvoid(ASTNode* expr);
-ASTNode* criar_no_complemento(ASTNode* expr);
+ASTNode* criar_no_aritmetico(TokenTipo op, ASTNode* esq, ASTNode* dir, int linha, int coluna);
+ASTNode* criar_no_relacional(TokenTipo op, ASTNode* esq, ASTNode* dir, int linha, int coluna);
+ASTNode* criar_no_not(ASTNode* expr, int linha, int coluna);
+ASTNode* criar_no_new(char* tipo_novo, int linha, int coluna);
+ASTNode* criar_no_isvoid(ASTNode* expr, int linha, int coluna);
+ASTNode* criar_no_complemento(ASTNode* expr, int linha, int coluna);
 
 // Estruturas
-ASTNode* criar_no_atribuicao(char* nome, ASTNode* valor);
-ASTNode* criar_no_if(ASTNode* cond, ASTNode* bloco_then, ASTNode* bloco_else);
-ASTNode* criar_no_while(ASTNode* cond, ASTNode* corpo);
-ASTNode* criar_no_bloco(ASTNode* lista_comandos);
+ASTNode* criar_no_atribuicao(char* nome, ASTNode* valor, int linha, int coluna);
+ASTNode* criar_no_if(ASTNode* cond, ASTNode* bloco_then, ASTNode* bloco_else, int linha, int coluna);
+ASTNode* criar_no_while(ASTNode* cond, ASTNode* corpo, int linha, int coluna);
+ASTNode* criar_no_bloco(ASTNode* lista_comandos, int linha, int coluna);
 
 // Dispatch
-ASTNode* criar_no_dispatch_implicito(ASTNode* nome_metodo, ASTNode* argumentos);
-ASTNode* criar_no_dispatch_explicito(ASTNode* base, char* tipo_estatico, char* nome_metodo, ASTNode* args);
+ASTNode* criar_no_dispatch_implicito(ASTNode* nome_metodo, ASTNode* argumentos, int linha, int coluna);
+ASTNode* criar_no_dispatch_explicito(ASTNode* base, char* tipo_estatico, char* nome_metodo, ASTNode* args, int linha, int col, int linha_at, int col_at, int linha_met, int col_met);
 
 // Ferramentas de Lista
 ASTNode* adicionar_comando(ASTNode* lista, ASTNode* novo_comando);

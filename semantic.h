@@ -49,7 +49,7 @@ int searchItem(char* nome, Symbol* tabela_simbolos, NodeType tipo_node, char* cl
         VERIFICADOR DE VALIDADE DE CLASSE PAI
 ========================================== */
 
-int verifyParent(char* pai);
+int verifyParent(char* pai, int linha_pai, int col_pai);
 
 /* ==========================================
         ANALISADOR SEMÂNTICO
