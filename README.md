@@ -172,6 +172,8 @@ class Main inherits IO {
 ## 👤 Autor
 
 **jessffc01** — Projeto acadêmico de Compiladores
+**PedroLucas** — Projeto acadêmico de Compiladores
+**YgorGenaio** — Projeto acadêmico de Compiladores
 
 ## 📄 Licença
 
