@@ -252,6 +252,11 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                 nome = atual->dados.atributo.nome_atributo;
                 init = atual->dados.atributo.inicializacao;
                 tipoFeature = atual->dados.atributo.tipo_atributo;
+
+                if(strcmp(tipoFeature, "SELF_TYPE") == 0 || strcmp(tipoFeature, "self") == 0){
+                    tipoFeature = classeOrigem;
+                }
+
                 if(init != NULL){
         
                     char* tipo_init = checkExpr(init, classeOrigem);
@@ -273,6 +278,12 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                 }
                 
                 if(corpo != NULL){
+                    push_scope();
+                    ASTNode* parametro_it = atual->dados.metodo.lista_formais;
+                    while(parametro_it != NULL){
+                        adicionar_symbol_var(parametro_it->dados.formal.nome_parametro, parametro_it->dados.formal.tipo_parametro, classeOrigem);
+                        parametro_it = parametro_it->proximo;
+                    }
                     char* tipo_corpo = checkExpr(corpo, classeOrigem);
                     if(atual->dados.metodo.tipo_valido != 0){
                         if(isSubtype(tipo_corpo, tipoFeature) == 0 && isSubtype(tipoFeature, tipo_corpo) == 0){
@@ -280,6 +291,7 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                             printf("Erro semantico: Tipo '%s' nao corresponde ao esperado pelo metodo (%s).Linha: %d, Col: %d\n", tipo_corpo, tipoFeature, corpo->linha, corpo->coluna); 
                         }
                     }
+                    pop_scope();
                 }
                 break;
         }
@@ -305,25 +317,39 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
         
         if(sym_var == NULL){
             sym_var = buscar_simbolo(node->dados.atribuicao.nome_variavel, tabela_atributos);
-            if(sym_var == NULL){
-                adicionar_symbol_var(node->dados.atribuicao.nome_variavel, valorType, classeOrigem);
-            }
         }
-        switch(sym_var->tipo_simbolo){
-            case SYM_ATRIBUTO:
-                if(strcmp(sym_var->info.smb_atributo.tipo, valorType) != 0) {
+
+        if(sym_var == NULL){
+                printf("Erro semantico: Atribuicao para variavel inexistente.Linha: %d, Col: %d\n", node->linha, node->coluna);
+        }
+        else{
+            switch(sym_var->tipo_simbolo){
+                case SYM_ATRIBUTO:
                     char* atribType = sym_var->info.smb_atributo.tipo;
-                    printf("Erro semantico: Tipo da atribuicao (%s) nao corresponde ao do atributo (%s).Linha: %d, Col: %d\n",valorType, atribType, node->linha, node->coluna);
-                    sm_errors += 1;
-                }
-                break;
-            case SYM_VAR:
-                if(strcmp(sym_var->info.smb_var.tipo, valorType) != 0) {
+
+                    if(strcmp(atribType, "SELF_TYPE") == 0 || strcmp(atribType, "self") == 0){
+                        atribType = classeOrigem;
+                    }
+
+                    if(strcmp(atribType, valorType) != 0) {
+                        printf("Erro semantico: Tipo da atribuicao (%s) nao corresponde ao do atributo (%s).Linha: %d, Col: %d\n",valorType, atribType, node->linha, node->coluna);
+                        sm_errors += 1;
+                    }
+                    break;
+                case SYM_VAR:
                     char* varType = sym_var->info.smb_var.tipo;
-                    printf("Erro semantico: Tipo da atribuicao (%s) nao corresponde ao da variavel (%s).Linha: %d, Col: %d\n", valorType, varType, node->linha, node->coluna);
-                    sm_errors += 1;
-                }
-                break;
+
+                    if(strcmp(varType, valorType) != 0) {
+                        
+                        if(strcmp(varType, "SELF_TYPE") == 0 || strcmp(varType, "self") == 0){
+                            varType = classeOrigem;
+                        }
+
+                        printf("Erro semantico: Tipo da atribuicao (%s) nao corresponde ao da variavel (%s).Linha: %d, Col: %d\n", valorType, varType, node->linha, node->coluna);
+                        sm_errors += 1;
+                    }
+                    break;
+            }
         }
         return valorType;
     }
@@ -429,7 +455,7 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
             sm_errors += 1;
         }
 
-        checkExpr(node->dados.no_while.condicao, classeOrigem);
+        checkExpr(node->dados.no_while.corpo, classeOrigem);
 
         return "Object";
     }
@@ -440,11 +466,12 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
         char* lastType = "Object";
 
         ASTNode* last = node->dados.bloco.lista_comandos;
-        while(last->proximo != NULL) {
-            last = last->proximo;
-        }
-        lastType =
+        do {
             checkExpr(last, classeOrigem);
+            last = last->proximo;
+        } while(last->proximo != NULL);
+
+        lastType = checkExpr(last, classeOrigem);
 
         return lastType;
     }
@@ -521,8 +548,8 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
    /* ---------- DISPATCH IMPLÍCITO ---------- */
     else if (node->tipo == NODE_DISPATCH_IMPLICITO)
     {
-
-        Symbol *metodo = buscar_simbolo(node->dados.dispatch.nome_metodo, tabela_metodos);
+        printf("\nChecando dispatch impl.\n");
+        Symbol *metodo = buscar_metodo(node->dados.dispatch.nome_metodo, classeOrigem);
         if (metodo == NULL)
         {
             printf("Erro semantico: metodo '%s' nao encontrado. Linha: %d, Col: %d\n", node->dados.dispatch.nome_metodo, node->linha, node->coluna);
@@ -545,12 +572,17 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
             formais = formais->next;
         }
 
+        if(strcmp(metodo->info.smb_metodo.tipo_retorno, "SELF_TYPE") == 0 || strcmp(metodo->info.smb_metodo.tipo_retorno, "self") == 0){
+            return classeOrigem;
+        }
+
         return metodo->info.smb_metodo.tipo_retorno;
     }
 
     /* ---------- DISPATCH EXPLÍCITO ---------- */
     else if (node->tipo == NODE_DISPATCH_EXPLICITO)
     {
+        printf("\nChecando dispatch expl.\n");
         char *exprType = checkExpr(node->dados.dispatch.expressao_base, classeOrigem);
         char *targetType = node->dados.dispatch.tipo_estatico;
 
@@ -563,7 +595,14 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
             sm_errors += 1;
         }
 
-        Symbol *metodo = buscar_simbolo(node->dados.dispatch.nome_metodo, tabela_metodos);
+        Symbol* metodo;
+        if(targetType != NULL){
+            metodo = buscar_metodo(node->dados.dispatch.nome_metodo, targetType);
+        }
+        else{
+            metodo = buscar_metodo(node->dados.dispatch.nome_metodo, exprType);
+        }
+        
         if (metodo == NULL)
         {
             int linha_met = node->dados.dispatch.linha_metodo;
@@ -587,6 +626,10 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
             }
             args = args->proximo;
             formais = formais->next;
+        }
+
+        if(strcmp(metodo->info.smb_metodo.tipo_retorno, "SELF_TYPE") == 0 || strcmp(metodo->info.smb_metodo.tipo_retorno, "self") == 0){
+            return classeOrigem;
         }
 
         return metodo->info.smb_metodo.tipo_retorno;
