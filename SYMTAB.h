@@ -68,6 +68,7 @@ void adicionar_symbol_var(char* nome, char* tipo, char* classOrigem);
 
 Symbol *buscar_simbolo(char* nome, Symbol *tabela_simbolos);
 Symbol *buscar_metodo(char* nome, char* classe);
+Symbol* buscar_atributo(char* nome, char* classe);
 void imprimir_tabelas();
 void imprimir_tabela(Symbol* tabela_simbolos);
 void free_tabela(Symbol* tabela_simbolos);
