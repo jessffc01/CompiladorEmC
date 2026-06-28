@@ -63,6 +63,56 @@ Symbol* buscar_simbolo(char* nome, Symbol* tabela_simbolos) {
     return NULL; // Chegou no fim da lista e não achou nada
 }
 
+Symbol* buscar_metodo(char* nome, char* classe){
+    Symbol* classeAtual;
+
+    do{
+        Symbol* atual = tabela_metodos;
+        while (atual != NULL) {
+            if (strcmp(atual->nome, nome) == 0) {
+                if (strcmp(atual->info.smb_metodo.classOrigem, classe) == 0) {
+                    return atual;
+                }
+            }
+            atual = atual->next;
+        }
+        classeAtual = buscar_simbolo(classe, tabela_classes);
+
+        if(classeAtual == NULL){
+            return NULL;
+        }
+
+        classe = classeAtual->info.smb_classe.parentName; 
+    }while(strcmp(classeAtual->nome, "Object") != 0);
+    
+    return NULL;
+}
+
+Symbol* buscar_atributo(char* nome, char* classe){
+    Symbol* classeAtual;
+
+    do{
+        Symbol* atual = tabela_atributos;
+        while (atual != NULL) {
+            if (strcmp(atual->nome, nome) == 0) {
+                if (strcmp(atual->info.smb_atributo.classOrigem, classe) == 0) {
+                    return atual;
+                }
+            }
+            atual = atual->next;
+        }
+        classeAtual = buscar_simbolo(classe, tabela_classes);
+
+        if(classeAtual == NULL){
+            return NULL;
+        }
+
+        classe = classeAtual->info.smb_classe.parentName; 
+    }while(strcmp(classeAtual->nome, "Object") != 0);
+    
+    return NULL;
+}
+
 /* =========================================================================
    INSERIR: Adiciona uma nova variável no caderno
    ========================================================================= */

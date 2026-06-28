@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "semantic.h"
+#include "codegen.h"
 
 extern Token currentToken;
 
@@ -35,6 +36,18 @@ int main() {
         imprimir_tabelas();
         if(sm_errors == 0){
             printf("Analise semantica realizada com sucesso!\n");
+
+            FILE *saida = freopen("saida.bril", "w", stdout);
+
+            if (saida == NULL) {
+                perror("Erro ao criar saida.bril");
+                liberar_arvore(root);
+                fclose(arquivo);
+                return 1;
+            }
+
+            iniciar_geracao(root);
+
         }
         else{
             printf("%d Erros encontrados na analise semantica.\n", sm_errors);
