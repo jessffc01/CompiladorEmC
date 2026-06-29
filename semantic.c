@@ -176,12 +176,23 @@ int verifyParent(char* pai, int linha_pai, int col_pai){
         ANALISADOR SEMÂNTICO
 ========================================== */
 int checkProgram(ASTNode* node){
+    sm_errors = 0;
     init_symbols();
     ASTNode* atual = node;
 
+    // O parser atual usa "object" minúsculo quando "inherits" não aparece.
+    // Internamente, a classe básica registrada na tabela é "Object".
+    // Normalizar aqui evita rejeitar classes perfeitamente válidas.
     //Verificar se as classes são válidas e as adicionar à tabela de classes
     while(atual != NULL){
         char* nome = atual->dados.classe.nome_classe;
+
+        if (atual->dados.classe.nome_pai == NULL ||
+            strcmp(atual->dados.classe.nome_pai, "") == 0 ||
+            strcmp(atual->dados.classe.nome_pai, "object") == 0) {
+            atual->dados.classe.nome_pai = "Object";
+        }
+
         int nomeOcupado = searchItem(nome, tabela_classes, NODE_CLASSE, NULL, NULL, NULL);
         int paiValido = verifyParent(atual->dados.classe.nome_pai, atual->dados.classe.linha_pai, atual->dados.classe.coluna_pai);
         if(paiValido == 0){
@@ -384,7 +395,8 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
         }
 
         if(sym_var == NULL){
-                printf("Erro semantico: Atribuicao para variavel inexistente.Linha: %d, Col: %d\n", node->linha, node->coluna);
+                printf("Erro semantico: Atribuicao para variavel inexistente. Linha: %d, Col: %d\n", node->linha, node->coluna);
+                sm_errors += 1;
         }
         else{
             switch(sym_var->tipo_simbolo){
