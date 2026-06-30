@@ -259,17 +259,19 @@ void checkFeatures(ASTNode* node, char* classeOrigem){
                 tipoFeature = atual->dados.metodo.tipo_retorno;
                 nomeMetodo = atual->dados.metodo.nome_metodo;
 
-                if(strcmp(tipoFeature, "SELF_TYPE") == 0 || strcmp(tipoFeature, "self") == 0){
-                    tipoFeature = classeOrigem;
+                char *tipoValidar = tipoFeature;
+
+                if(strcmp(tipoValidar, "SELF_TYPE") == 0 || strcmp(tipoValidar, "self") == 0){
+                    tipoValidar = classeOrigem;
                 }
 
                 nomeOcupado = searchItem(nomeMetodo, tabela_metodos, atual->tipo, classeOrigem, NULL, atual->dados.metodo.tipo_retorno);
 
-                if(buscar_simbolo(tipoFeature, tabela_classes) == NULL){
+                if(buscar_simbolo(tipoValidar, tabela_classes) == NULL){
                     atual->dados.metodo.tipo_valido = 0;
                     int linha_tipo = atual->dados.metodo.linha_tipo;
                     int col_tipo = atual->dados.metodo.coluna_tipo;
-                    printf("Erro semantico: Tipo '%s' nao existente. Linha: %d, Col: %d\n", tipoFeature, linha_tipo, col_tipo);
+                    printf("Erro semantico: Tipo '%s' nao existente. Linha: %d, Col: %d\n", tipoValidar, linha_tipo, col_tipo);
                 }
 
                 if(nomeOcupado == 1){
@@ -499,26 +501,54 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
     else if (node->tipo == NODE_CASE)
     {
         ASTNode *branch = node->dados.no_case.lista_cases;
-        char *resultType = checkExpr(node->dados.no_case.expressao_principal, classeOrigem);
-        while (branch != NULL)
-        {
+        char *resultType = NULL;
+        ASTNode *repeatFinder;
+        while (branch != NULL){
+            repeatFinder = branch->proximo;
             char *nome = branch->dados.case_branch.nome_variavel;
+
+            if(strcmp(nome, "self") == 0){
+                printf("Erro semantico: Nome da branch nao pode ser 'self'. Linha: %d, Col: %d\n", branch->linha, branch->coluna);
+                sm_errors += 1;
+            }
+
             char *tipo = branch->dados.case_branch.tipo_variavel;
-            if(isSubtype(tipo, resultType) == 0){
-                linha_tipo = branch->dados.case_branch.linha_tipo;
-                col_tipo = branch->dados.case_branch.coluna_tipo;
-                printf("Erro semantico: Tipo estatico da branch (%s) nao eh subtipo de (%s). Linha: %d, Col: %d\n", tipo, resultType, linha_tipo, col_tipo);
+            linha_tipo = branch->dados.case_branch.linha_tipo;
+            col_tipo = branch->dados.case_branch.coluna_tipo;
+            if(buscar_simbolo(tipo, tabela_classes) == NULL){
+                printf("Erro semantico: Tipo '%s' nao existe. Linha: %d, Col: %d\n", tipo, linha_tipo, col_tipo);
+                sm_errors += 1;
+            }
+
+            char *nomeRep;
+            char *tipoRep;
+            if(repeatFinder!= NULL){
+                nomeRep = repeatFinder->dados.case_branch.nome_variavel;
+                tipoRep = repeatFinder->dados.case_branch.tipo_variavel;
+            }
+            while(repeatFinder != NULL){
+                nomeRep = repeatFinder->dados.case_branch.nome_variavel;
+                tipoRep = repeatFinder->dados.case_branch.tipo_variavel;
+                if(strcmp(tipo, tipoRep) == 0){
+                    printf("Erro semantico: Tipo estatico da branch (%s) eh repetido de uma branch anterior. Linha: %d, Col: %d\n", tipo, linha_tipo, col_tipo);
+                    sm_errors += 1;
+                }
+                repeatFinder = repeatFinder->proximo;
             }
             ASTNode *expr = branch->dados.case_branch.corpo;
             push_scope();
             adicionar_symbol_var(nome, tipo, classeOrigem);
 
             char *branchType = checkExpr(expr, classeOrigem);
-            resultType = leastCommonAncestor(resultType, branchType);
+            if(resultType == NULL){
+                resultType = branchType;
+            }
+            else{
+                resultType = leastCommonAncestor(resultType, branchType);
+            }
             branch = branch->proximo;
             pop_scope();
         }
-
         return resultType;
     }
     /* ---------- WHILE ---------- */
@@ -717,9 +747,11 @@ char* checkExpr(ASTNode* node, char* classeOrigem) {
             sm_errors += 1;
         }
 
-        if(strcmp(metodo->info.smb_metodo.tipo_retorno, "SELF_TYPE") == 0 || strcmp(metodo->info.smb_metodo.tipo_retorno, "self") == 0){
-            return classeOrigem;
+        if (strcmp(metodo->info.smb_metodo.tipo_retorno, "SELF_TYPE") == 0 || strcmp(metodo->info.smb_metodo.tipo_retorno, "self") == 0) {
+            return exprType;
         }
+
+return metodo->info.smb_metodo.tipo_retorno;
 
         return metodo->info.smb_metodo.tipo_retorno;
     }
