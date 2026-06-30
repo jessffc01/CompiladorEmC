@@ -1,0 +1,397 @@
+# Arquivo Bril gerado pelo compilador COOL
+# Objeto: ptr<int> | offset 0: tag | offsets 1+: atributos Int
+# Dispatch: chamada direta @Classe_metodo(self, argumentos...)
+
+# ================================================================
+# Runtime minimo de Object, IO e String
+# ================================================================
+
+@Object_abort(self: ptr<int>): ptr<int> {
+  # Runtime completo deve interromper a execucao aqui.
+  ret self;
+}
+
+@Object_type_name(self: ptr<int>): ptr<int> {
+  # Runtime completo deve construir a String do nome dinamico.
+  ret self;
+}
+
+@Object_copy(self: ptr<int>): ptr<int> {
+  # Runtime completo deve copiar o objeto; por ora retorna self.
+  ret self;
+}
+
+@IO_out_int(self: ptr<int>, x: int): ptr<int> {
+  print x;
+  ret self;
+}
+
+@IO_out_string(self: ptr<int>, x: ptr<int>): ptr<int> {
+  # String: [0] tag | [1] tamanho | [2...] codigos dos caracteres.
+  # print em Bril finaliza cada caractere com quebra de linha.
+  v1: int = const 1;
+  v2: ptr<int> = ptradd x v1;
+  v3: int = load v2;
+  v4: int = const 0;
+  v5: ptr<int> = alloc v1;
+  store v5 v4;
+
+.out_string_loop_1:
+  v6: int = load v5;
+  v7: bool = lt v6 v3;
+  br v7 .out_string_body_2 .out_string_end_3;
+
+.out_string_body_2:
+  v8: int = const 2;
+  v9: int = add v6 v8;
+  v10: ptr<int> = ptradd x v9;
+  v11: int = load v10;
+  v12: char = int2char v11;
+  print v12;
+  v13: int = add v6 v1;
+  store v5 v13;
+  jmp .out_string_loop_1;
+
+.out_string_end_3:
+  free v5;
+  ret self;
+}
+
+@IO_in_int(self: ptr<int>): int {
+  v14: int = const 0;
+  ret v14;
+}
+
+@IO_in_string(self: ptr<int>): ptr<int> {
+  # Stub temporario para leitura de String.
+  ret self;
+}
+
+@String_length(self: ptr<int>): int {
+  v15: int = const 1;
+  v16: ptr<int> = ptradd self v15;
+  v17: int = load v16;
+  ret v17;
+}
+
+@String_concat(self: ptr<int>, s: ptr<int>): ptr<int> {
+  # Stub temporario: runtime completo deve alocar a concatenacao.
+  ret self;
+}
+
+@String_substr(self: ptr<int>, i: int, l: int): ptr<int> {
+  # Stub temporario: runtime completo deve alocar a substring.
+  ret self;
+}
+
+# ================================================================
+# Classe COOL: Main | pai: IO | tag: 5 | celulas: 1
+# ================================================================
+
+@Main_main(self: ptr<int>): ptr<int> {
+  v18: int = const 10;
+  v19: int = const 1;
+  v20: ptr<int> = alloc v19;
+  store v20 v18;
+  v21: int = const 20;
+  v22: int = const 1;
+  v23: ptr<int> = alloc v22;
+  store v23 v21;
+  v24: int = const 0;
+  v25: int = const 1;
+  v26: ptr<int> = alloc v25;
+  store v26 v24;
+  v27: int = load v20;
+  v28: int = load v23;
+  v29: int = add v27 v28;
+  store v26 v29;
+  v30: int = const 21;
+  v31: ptr<int> = alloc v30;
+  v32: int = const 3;
+  v33: int = const 0;
+  v34: ptr<int> = ptradd v31 v33;
+  store v34 v32;
+  v35: int = const 19;
+  v36: int = const 1;
+  v37: ptr<int> = ptradd v31 v36;
+  store v37 v35;
+  v38: int = const 82;
+  v39: int = const 2;
+  v40: ptr<int> = ptradd v31 v39;
+  store v40 v38;
+  v41: int = const 101;
+  v42: int = const 3;
+  v43: ptr<int> = ptradd v31 v42;
+  store v43 v41;
+  v44: int = const 115;
+  v45: int = const 4;
+  v46: ptr<int> = ptradd v31 v45;
+  store v46 v44;
+  v47: int = const 117;
+  v48: int = const 5;
+  v49: ptr<int> = ptradd v31 v48;
+  store v49 v47;
+  v50: int = const 108;
+  v51: int = const 6;
+  v52: ptr<int> = ptradd v31 v51;
+  store v52 v50;
+  v53: int = const 116;
+  v54: int = const 7;
+  v55: ptr<int> = ptradd v31 v54;
+  store v55 v53;
+  v56: int = const 97;
+  v57: int = const 8;
+  v58: ptr<int> = ptradd v31 v57;
+  store v58 v56;
+  v59: int = const 100;
+  v60: int = const 9;
+  v61: ptr<int> = ptradd v31 v60;
+  store v61 v59;
+  v62: int = const 111;
+  v63: int = const 10;
+  v64: ptr<int> = ptradd v31 v63;
+  store v64 v62;
+  v65: int = const 32;
+  v66: int = const 11;
+  v67: ptr<int> = ptradd v31 v66;
+  store v67 v65;
+  v68: int = const 100;
+  v69: int = const 12;
+  v70: ptr<int> = ptradd v31 v69;
+  store v70 v68;
+  v71: int = const 97;
+  v72: int = const 13;
+  v73: ptr<int> = ptradd v31 v72;
+  store v73 v71;
+  v74: int = const 32;
+  v75: int = const 14;
+  v76: ptr<int> = ptradd v31 v75;
+  store v76 v74;
+  v77: int = const 115;
+  v78: int = const 15;
+  v79: ptr<int> = ptradd v31 v78;
+  store v79 v77;
+  v80: int = const 111;
+  v81: int = const 16;
+  v82: ptr<int> = ptradd v31 v81;
+  store v82 v80;
+  v83: int = const 109;
+  v84: int = const 17;
+  v85: ptr<int> = ptradd v31 v84;
+  store v85 v83;
+  v86: int = const 97;
+  v87: int = const 18;
+  v88: ptr<int> = ptradd v31 v87;
+  store v88 v86;
+  v89: int = const 58;
+  v90: int = const 19;
+  v91: ptr<int> = ptradd v31 v90;
+  store v91 v89;
+  v92: int = const 32;
+  v93: int = const 20;
+  v94: ptr<int> = ptradd v31 v93;
+  store v94 v92;
+  v95: ptr<int> = call @IO_out_string self v31;
+  v96: int = load v26;
+  v97: ptr<int> = call @IO_out_int self v96;
+  v98: int = const 3;
+  v99: ptr<int> = alloc v98;
+  v100: int = const 3;
+  v101: int = const 0;
+  v102: ptr<int> = ptradd v99 v101;
+  store v102 v100;
+  v103: int = const 1;
+  v104: int = const 1;
+  v105: ptr<int> = ptradd v99 v104;
+  store v105 v103;
+  v106: int = const 10;
+  v107: int = const 2;
+  v108: ptr<int> = ptradd v99 v107;
+  store v108 v106;
+  v109: ptr<int> = call @IO_out_string self v99;
+  v110: int = const 21;
+  v111: ptr<int> = alloc v110;
+  v112: int = const 3;
+  v113: int = const 0;
+  v114: ptr<int> = ptradd v111 v113;
+  store v114 v112;
+  v115: int = const 19;
+  v116: int = const 1;
+  v117: ptr<int> = ptradd v111 v116;
+  store v117 v115;
+  v118: int = const 118;
+  v119: int = const 2;
+  v120: ptr<int> = ptradd v111 v119;
+  store v120 v118;
+  v121: int = const 97;
+  v122: int = const 3;
+  v123: ptr<int> = ptradd v111 v122;
+  store v123 v121;
+  v124: int = const 105;
+  v125: int = const 4;
+  v126: ptr<int> = ptradd v111 v125;
+  store v126 v124;
+  v127: int = const 32;
+  v128: int = const 5;
+  v129: ptr<int> = ptradd v111 v128;
+  store v129 v127;
+  v130: int = const 112;
+  v131: int = const 6;
+  v132: ptr<int> = ptradd v111 v131;
+  store v132 v130;
+  v133: int = const 117;
+  v134: int = const 7;
+  v135: ptr<int> = ptradd v111 v134;
+  store v135 v133;
+  v136: int = const 108;
+  v137: int = const 8;
+  v138: ptr<int> = ptradd v111 v137;
+  store v138 v136;
+  v139: int = const 97;
+  v140: int = const 9;
+  v141: ptr<int> = ptradd v111 v140;
+  store v141 v139;
+  v142: int = const 114;
+  v143: int = const 10;
+  v144: ptr<int> = ptradd v111 v143;
+  store v144 v142;
+  v145: int = const 32;
+  v146: int = const 11;
+  v147: ptr<int> = ptradd v111 v146;
+  store v147 v145;
+  v148: int = const 97;
+  v149: int = const 12;
+  v150: ptr<int> = ptradd v111 v149;
+  store v150 v148;
+  v151: int = const 32;
+  v152: int = const 13;
+  v153: ptr<int> = ptradd v111 v152;
+  store v153 v151;
+  v154: int = const 108;
+  v155: int = const 14;
+  v156: ptr<int> = ptradd v111 v155;
+  store v156 v154;
+  v157: int = const 105;
+  v158: int = const 15;
+  v159: ptr<int> = ptradd v111 v158;
+  store v159 v157;
+  v160: int = const 110;
+  v161: int = const 16;
+  v162: ptr<int> = ptradd v111 v161;
+  store v162 v160;
+  v163: int = const 104;
+  v164: int = const 17;
+  v165: ptr<int> = ptradd v111 v164;
+  store v165 v163;
+  v166: int = const 97;
+  v167: int = const 18;
+  v168: ptr<int> = ptradd v111 v167;
+  store v168 v166;
+  v169: int = const 46;
+  v170: int = const 19;
+  v171: ptr<int> = ptradd v111 v170;
+  store v171 v169;
+  v172: int = const 46;
+  v173: int = const 20;
+  v174: ptr<int> = ptradd v111 v173;
+  store v174 v172;
+  v175: ptr<int> = call @IO_out_string self v111;
+  v176: int = const 3;
+  v177: ptr<int> = alloc v176;
+  v178: int = const 3;
+  v179: int = const 0;
+  v180: ptr<int> = ptradd v177 v179;
+  store v180 v178;
+  v181: int = const 1;
+  v182: int = const 1;
+  v183: ptr<int> = ptradd v177 v182;
+  store v183 v181;
+  v184: int = const 10;
+  v185: int = const 2;
+  v186: ptr<int> = ptradd v177 v185;
+  store v186 v184;
+  v187: ptr<int> = call @IO_out_string self v177;
+  v188: int = const 17;
+  v189: ptr<int> = alloc v188;
+  v190: int = const 3;
+  v191: int = const 0;
+  v192: ptr<int> = ptradd v189 v191;
+  store v192 v190;
+  v193: int = const 15;
+  v194: int = const 1;
+  v195: ptr<int> = ptradd v189 v194;
+  store v195 v193;
+  v196: int = const 110;
+  v197: int = const 2;
+  v198: ptr<int> = ptradd v189 v197;
+  store v198 v196;
+  v199: int = const 97;
+  v200: int = const 3;
+  v201: ptr<int> = ptradd v189 v200;
+  store v201 v199;
+  v202: int = const 111;
+  v203: int = const 4;
+  v204: ptr<int> = ptradd v189 v203;
+  store v204 v202;
+  v205: int = const 32;
+  v206: int = const 5;
+  v207: ptr<int> = ptradd v189 v206;
+  store v207 v205;
+  v208: int = const 115;
+  v209: int = const 6;
+  v210: ptr<int> = ptradd v189 v209;
+  store v210 v208;
+  v211: int = const 97;
+  v212: int = const 7;
+  v213: ptr<int> = ptradd v189 v212;
+  store v213 v211;
+  v214: int = const 98;
+  v215: int = const 8;
+  v216: ptr<int> = ptradd v189 v215;
+  store v216 v214;
+  v217: int = const 101;
+  v218: int = const 9;
+  v219: ptr<int> = ptradd v189 v218;
+  store v219 v217;
+  v220: int = const 109;
+  v221: int = const 10;
+  v222: ptr<int> = ptradd v189 v221;
+  store v222 v220;
+  v223: int = const 111;
+  v224: int = const 11;
+  v225: ptr<int> = ptradd v189 v224;
+  store v225 v223;
+  v226: int = const 115;
+  v227: int = const 12;
+  v228: ptr<int> = ptradd v189 v227;
+  store v228 v226;
+  v229: int = const 46;
+  v230: int = const 13;
+  v231: ptr<int> = ptradd v189 v230;
+  store v231 v229;
+  v232: int = const 46;
+  v233: int = const 14;
+  v234: ptr<int> = ptradd v189 v233;
+  store v234 v232;
+  v235: int = const 32;
+  v236: int = const 15;
+  v237: ptr<int> = ptradd v189 v236;
+  store v237 v235;
+  v238: int = const 10;
+  v239: int = const 16;
+  v240: ptr<int> = ptradd v189 v239;
+  store v240 v238;
+  v241: ptr<int> = call @IO_out_string self v189;
+  ret v241;
+}
+
+@main() {
+  v242: int = const 1;
+  v243: ptr<int> = alloc v242;
+  v244: int = const 5;
+  v245: int = const 0;
+  v246: ptr<int> = ptradd v243 v245;
+  store v246 v244;
+  v247: ptr<int> = call @Main_main v243;
+  ret;
+}
